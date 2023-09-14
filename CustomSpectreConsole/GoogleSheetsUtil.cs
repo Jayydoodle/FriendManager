@@ -15,8 +15,6 @@ namespace CustomSpectreConsole
     {
         private const string BaseUrl = "https://docs.google.com/spreadsheets/d/{0}/export?format=xlsx&amp;usp=sharing";
 
-        static SheetsService Service = new SheetsService();
-
         public static void ProcessSheet(string sheetId, Action<ExcelWorksheet> processFunction)
         {
             var url = string.Format(BaseUrl, sheetId);

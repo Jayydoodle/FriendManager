@@ -1,27 +1,12 @@
 ﻿using CustomSpectreConsole;
-using Google.Apis.Auth.OAuth2;
-using Google.Apis.Sheets.v4;
-using Google.Apis.Util.Store;
-using Newtonsoft.Json;
 using OfficeOpenXml;
 using Spectre.Console;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Net;
-using System.Net.Http.Json;
-using System.Text;
-using System.Threading.Channels;
-using TGFriendTracker;
-using TGFriendTracker.BAL;
-using TGFriendTracker.BAL.FriendTechTracker.BAL;
-using TGFriendTracker.Functions;
-using TL;
-using WTelegram;
-using Channel = TL.Channel;
+using FriendManager.Functions;
+using System.Configuration;
 
 class Program
 {
+    private const string ApplicationName = "Friend Manager";
     private const string VersionNumber = "1.0";
 
     static HttpClient WebClient { get; set; }
@@ -98,7 +83,7 @@ class Program
 
     private static void PrintMenuHeading()
     {
-        Rule rule = new Rule(string.Format("[green]FriendTracker v{0}[/]\n", VersionNumber)).DoubleBorder<Rule>();
+        Rule rule = new Rule(string.Format("[green]{0} v{1}[/]\n", ApplicationName, VersionNumber)).DoubleBorder<Rule>();
         AnsiConsole.Write(rule);
     }
 
@@ -106,7 +91,8 @@ class Program
     {
         List<ListOption> listOptions = new List<ListOption>();
 
-        listOptions.Add(TelegramUserManager.Instance);
+        listOptions.Add(TelegramManager.Instance);
+        listOptions.Add(DiscordManager.Instance);
         listOptions.Add(ConsoleFunction.GetHelpOption());
         listOptions.Add(new ListOption(GlobalConstants.SelectionOptions.Exit, null));
 

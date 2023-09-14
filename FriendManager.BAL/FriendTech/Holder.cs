@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using FriendManager.BAL.FriendTech;
 
-namespace TGFriendTracker.BAL
+namespace FriendManager.BAL
 {
     namespace FriendTechTracker.BAL
     {
-        public class HolderDetails
+        public class FriendTechHolderDetails
         {
             public List<Holder> Users { get; set; }
             public int? NextPageStart { get; set; }

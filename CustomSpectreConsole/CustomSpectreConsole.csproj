@@ -13,6 +13,7 @@
     <PackageReference Include="ScrapySharp" Version="3.0.0" />
     <PackageReference Include="SharpCompress" Version="0.32.2" />
     <PackageReference Include="Spectre.Console" Version="0.44.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
   </ItemGroup>
 
 </Project>

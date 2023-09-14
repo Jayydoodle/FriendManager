@@ -30,6 +30,15 @@ namespace CustomSpectreConsole
             });
         }
 
+        public static DirectoryInfo GetOrCreateDirectory(string filePath)
+        {
+            // If directory does not exist, create it
+            if (!Directory.Exists(filePath))
+                return Directory.CreateDirectory(filePath);
+            else
+                return new DirectoryInfo(filePath);
+        }
+
         public static T GetFileSystemInfoFromInput<T>(string prompt, bool isRequired)
         where T : FileSystemInfo
         {
@@ -334,13 +343,19 @@ namespace CustomSpectreConsole
             return enteredValues;
         }
 
-        public static string GetInput(string message, Func<string, bool> validator = null, string validationErrorMessage = null)
+        public static string GetInput(string message, Func<string, bool> validator = null, PromptSettings settings = null)
         {
             string value = null;
 
+            if(settings == null)
+                settings = new PromptSettings();
+
             TextPrompt<string> prompt = new TextPrompt<string>(message);
-            prompt.ValidationErrorMessage = validationErrorMessage ?? "\nInvalid Input.\n";
+            prompt.ValidationErrorMessage = settings.ValidationErrorMessage ?? "\nInvalid Input.\n";
             prompt.AllowEmpty = true;
+
+            if(settings.IsSecret)
+                prompt.Secret();
 
             value = validator != null ? AnsiConsole.Prompt(prompt.Validate(validator))
                                       : AnsiConsole.Prompt(prompt);
