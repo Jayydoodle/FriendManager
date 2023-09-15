@@ -5,6 +5,7 @@ using Discord.Rest;
 using Discord.WebSocket;
 using FriendManager.BAL.Discord;
 using FriendManager.BAL.FriendTechTracker.BAL;
+using FriendManager.Functions;
 using FriendManager.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
@@ -44,6 +45,22 @@ namespace FriendManager.Discord
             set
             {
                 _logChannel = value;
+            }
+        }
+
+        private List<DiscordRoleConfig> _roleConfigs;
+        public List<DiscordRoleConfig> RoleConfigs
+        {
+            get
+            {
+                if (_roleConfigs == null)
+                    _roleConfigs = DiscordManager.GetRoleConfigurations();
+
+                return _roleConfigs;
+            }
+            set
+            {
+                _roleConfigs = value;
             }
         }
 
@@ -285,6 +302,14 @@ namespace FriendManager.Discord
             await Task.CompletedTask;
         }
 
+        public List<SocketRole> GetRoles()
+        {
+            if (Guild == null)
+                Guild = Client.GetGuild(DiscordServerId);
+
+            return Guild.Roles.ToList();
+        }
+
         private async Task ValidateUser(SocketGuildUser user, List<Holder> holders = null, List<string> excludedUsers = null)
         {
             if (!Initialized) return;
@@ -310,7 +335,7 @@ namespace FriendManager.Discord
 
             Holder holder = holders.Where(x => x.UserMapping != null)
                                    .Where(x => !string.IsNullOrEmpty(x.UserMapping.DiscordUserName))
-                                   .Where(x => x.UserMapping.DiscordUserName.ToLower() == user.Username)
+                                   .Where(x => x.UserMapping.DiscordUserName.ToLower() == user.Username.ToLower())
                                    .FirstOrDefault();
 
             if (holder == null)
@@ -319,6 +344,10 @@ namespace FriendManager.Discord
 
                 if (LogChannel != null)
                     await LogChannel.SendMessageAsync(string.Format("User '{0}' removed from the server for not holding any shares", user.Username));
+            }
+            else
+            {
+                await AssignUserRoles(user, holder);
             }
 
             await Task.CompletedTask;
@@ -332,6 +361,44 @@ namespace FriendManager.Discord
                 await LogChannel.SendMessageAsync(string.Format("User '{0}' joined the server", arg.Username));
 
             await ValidateUser(arg);
+        }
+
+        private async Task AssignUserRoles(SocketGuildUser user, Holder holder)
+        {
+            if (!Initialized) return;
+
+            int.TryParse(holder.Balance, out int numKeys);
+
+            DiscordRoleConfig roleConfig = null;
+
+            foreach (var config in RoleConfigs)
+            {
+                if (numKeys >= config.NumKeys)
+                {
+                    roleConfig = config;
+                }
+                else
+                {
+                    if(user.Roles != null && user.Roles.Any(x => x.Id == config.RoleId))
+                        await user.RemoveRoleAsync(config.RoleId);
+                }
+            }
+
+            string errorMessage = string.Format("Could not find a role to assign the User '{0}' holding {1} keys", user.Username, numKeys);
+            bool throwError = false;
+
+            if (roleConfig != null)
+            {
+                if (user.Roles == null || !user.Roles.Any(x => x.Id == roleConfig.RoleId))
+                    await user.AddRoleAsync(roleConfig.RoleId);
+            }
+            else
+            {
+                if (LogChannel != null)
+                    await LogChannel.SendMessageAsync(errorMessage); throwError = true;
+            }
+
+            await Task.CompletedTask;
         }
 
         #endregion

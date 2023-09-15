@@ -57,6 +57,7 @@ namespace FriendManager.Functions
             listOptions.Add(new ListOption("Edit Configuration", EditConfiguration));
             listOptions.Add(new ListOption("Manage Target Servers", EditTargetServerConfig));
             listOptions.Add(new ListOption("Manage Excluded Channels", EditChannelConfig));
+            listOptions.Add(new ListOption("Manage Roles", EditRoleConfig));
             listOptions.AddRange(base.GetListOptions());
             listOptions.Add(GetHelpOption());
 
@@ -141,7 +142,7 @@ namespace FriendManager.Functions
 
         private void EditTargetServerConfig()
         {
-            List<DiscordGuildExtractionSetting> extractionSettings = DiscordManager.GetExtractionSettings();
+            List<DiscordGuildExtractionConfig> extractionSettings = DiscordManager.GetExtractionSettings();
             List<DiscordGuildDTO> userGuilds = ExtractionClient.GetAvailableGuilds();
 
             MultiSelectionPrompt<DiscordGuildDTO> prompt = new MultiSelectionPrompt<DiscordGuildDTO>();
@@ -164,7 +165,7 @@ namespace FriendManager.Functions
             choices.ForEach(x =>
             {
                 if (!extractionSettings.Any(y => y.GuildId == x.GuildId))
-                    extractionSettings.Add(new DiscordGuildExtractionSetting() { Name = x.GuildName, GuildId = x.GuildId });
+                    extractionSettings.Add(new DiscordGuildExtractionConfig() { Name = x.GuildName, GuildId = x.GuildId });
             });
 
             extractionSettings = extractionSettings.Where(x => choices.Any(y => y.GuildId == x.GuildId)).ToList();
@@ -177,15 +178,15 @@ namespace FriendManager.Functions
 
         private void EditChannelConfig()
         {
-            List<DiscordGuildExtractionSetting> extractionSettings = DiscordManager.GetExtractionSettings();
+            List<DiscordGuildExtractionConfig> extractionSettings = DiscordManager.GetExtractionSettings();
 
-            SelectionPrompt<DiscordGuildExtractionSetting> extractionPrompt = new SelectionPrompt<DiscordGuildExtractionSetting>();
+            SelectionPrompt<DiscordGuildExtractionConfig> extractionPrompt = new SelectionPrompt<DiscordGuildExtractionConfig>();
             extractionPrompt.Title = "Select the server whose channels you want to manage";
             extractionPrompt.PageSize = 20;
             extractionPrompt.UseConverter(x => string.Format("{0} ({1})", x.Name, x.GuildId));
             extractionPrompt.AddChoices(extractionSettings);
 
-            DiscordGuildExtractionSetting setting = AnsiConsole.Prompt(extractionPrompt);   
+            DiscordGuildExtractionConfig setting = AnsiConsole.Prompt(extractionPrompt);   
             extractionSettings.Remove(setting);
 
             List<DiscordChannelDTO> availableChannels = ExtractionClient.GetAvailableChannels()
@@ -241,6 +242,39 @@ namespace FriendManager.Functions
             AnsiConsole.WriteLine();
         }
 
+        private void EditRoleConfig()
+        {
+            List<DiscordRoleConfig> currentConfigs = GetRoleConfigurations();
+
+            List<SocketRole> roles = Client.GetRoles();
+
+            SelectionPrompt<SocketRole> prompt = new SelectionPrompt<SocketRole>();
+            prompt.Title = Setting.DiscordRoleConfiguration.GetPrompt();
+            prompt.PageSize = 20;
+            prompt.UseConverter(x => string.Format("{0} ({1})", x.Name, x.Id));
+            prompt.AddChoices(roles);
+
+            SocketRole choice = AnsiConsole.Prompt(prompt);
+
+            string keys = Utilities.GetInput("How many keys should a user hold for this role?", x => x.All(y => char.IsDigit(y)));
+            int.TryParse(keys, out int numKeys);
+
+            DiscordRoleConfig config = currentConfigs.FirstOrDefault(x => x.RoleId == choice.Id);
+
+            if (config == null)
+            {
+                config = new DiscordRoleConfig();
+                config.RoleId = choice.Id;
+                config.RoleName = choice.Name;
+                currentConfigs.Add(config);
+            }
+
+            config.NumKeys = numKeys;
+            XMLSettings.Update(Setting.DiscordRoleConfiguration, JsonConvert.SerializeObject(currentConfigs));
+
+            AnsiConsole.MarkupLine("[green]The role '{0}' has been updated successfully![/]", choice.Name);
+        }
+
         private bool ValidateSetting(Setting node, string value)
         {
             bool validated = true;
@@ -256,7 +290,7 @@ namespace FriendManager.Functions
             {
                 try
                 {
-                    JsonConvert.DeserializeObject<List<DiscordGuildExtractionSetting>>(value);
+                    JsonConvert.DeserializeObject<List<DiscordGuildExtractionConfig>>(value);
                 }
                 catch (Exception)
                 {
@@ -393,11 +427,23 @@ namespace FriendManager.Functions
 
         #region Private API
 
-        public static List<DiscordGuildExtractionSetting> GetExtractionSettings()
+        public static List<DiscordGuildExtractionConfig> GetExtractionSettings()
         {
             string val = XMLSettings.GetValue(Setting.DiscordServerExtractionSettings);
-            List<DiscordGuildExtractionSetting> settings = !string.IsNullOrEmpty(val) ? JsonConvert.DeserializeObject<List<DiscordGuildExtractionSetting>>(val) : new List<DiscordGuildExtractionSetting>();
+            List<DiscordGuildExtractionConfig> settings = !string.IsNullOrEmpty(val) ? JsonConvert.DeserializeObject<List<DiscordGuildExtractionConfig>>(val) : new List<DiscordGuildExtractionConfig>();
             return settings;
+        }
+
+        public static List<DiscordRoleConfig> GetRoleConfigurations()
+        {
+
+            string currentConfig = XMLSettings.GetValue(Setting.DiscordRoleConfiguration);
+            List<DiscordRoleConfig> currentConfigs = new List<DiscordRoleConfig>();
+
+            if (!string.IsNullOrEmpty(currentConfig))
+                currentConfigs = JsonConvert.DeserializeObject<List<DiscordRoleConfig>>(currentConfig);
+
+            return currentConfigs;
         }
 
         private void StopSyncRoutines()

@@ -56,14 +56,14 @@ namespace FriendManager.Discord
             if(guilds == null)
                 return messages;
 
-            List<DiscordGuildExtractionSetting> extractionSettings = DiscordManager.GetExtractionSettings();
+            List<DiscordGuildExtractionConfig> extractionSettings = DiscordManager.GetExtractionSettings();
             List<ulong> targerServerIds = extractionSettings.Select(x => x.GuildId).ToList();
 
             guilds = guilds.Where(x => targerServerIds.Contains(x.Id)).ToList();
 
             foreach(var guild in guilds) 
             {
-                DiscordGuildExtractionSetting setting = extractionSettings.FirstOrDefault(x => x.GuildId == guild.Id);
+                DiscordGuildExtractionConfig setting = extractionSettings.FirstOrDefault(x => x.GuildId == guild.Id);
 
                 List<ulong> excludedChannelIds = null;
 

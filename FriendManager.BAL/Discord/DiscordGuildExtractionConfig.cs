@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace FriendManager.BAL.Discord
 {
-    public class DiscordGuildExtractionSetting
+    public class DiscordGuildExtractionConfig
     {
         public string Name { get; set; }
         public ulong GuildId { get; set; }

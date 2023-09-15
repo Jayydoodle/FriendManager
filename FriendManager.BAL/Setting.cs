@@ -50,6 +50,12 @@ namespace FriendManager
             Prompt = string.Format("\nEnter the interval which invalid users should be removed from your Discord Server (in minutes).  Value must be greater than or equal to {0}: ", MinPurgeInterval)
         };
 
+        public static Setting DiscordServerExtractionSettings => new Setting()
+        {
+            Name = nameof(DiscordServerExtractionSettings),
+            Prompt = "\nSelect the Discord Servers you wish to target for data extraction: "
+        };
+
         public static Setting DiscordServerId => new Setting()
         {
             Name = nameof(DiscordServerId),
@@ -62,10 +68,10 @@ namespace FriendManager
             Prompt = string.Format("\nEnter the interval in which scheduled synchronization should run (in minutes).  Value must be greater than or equal to {0}: ", MinSyncInterval)
         };
 
-        public static Setting DiscordServerExtractionSettings => new Setting()
+        public static Setting DiscordRoleConfiguration => new Setting()
         {
-            Name = nameof(DiscordServerExtractionSettings),
-            Prompt = "\nSelect the Discord Servers you wish to target for data extraction: "
+            Name = nameof(DiscordRoleConfiguration),
+            Prompt = "\nSelect the Discord Role you want to manage: "
         };
 
         public static Setting DiscordUserToken => new Setting()

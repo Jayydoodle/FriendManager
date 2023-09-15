@@ -57,7 +57,8 @@ namespace FriendManager.Services
                 {
                     user.UserMapping = entries.Where(x => x.TwitterUserName != null)
                                               .Where(x => x.TwitterUserName.ToLower() == user.TwitterUsername.ToLower())
-                                              .Where(x => x.WalletAddress == user.Address)
+                                              .Where(x => x.WalletAddress != null)
+                                              .Where(x => x.WalletAddress.ToLower() == user.Address.ToLower())
                                               .FirstOrDefault() ?? new HolderUserMapping();
                 });
             };
