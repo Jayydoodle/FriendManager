@@ -44,7 +44,7 @@ namespace FriendManager.BAL.Base
 
         public BALObjectBase(TDal item)
         {
-            IsNew = item != null;
+            IsNew = item == null;
             LoadComplete = true;
             Loading = Task.CompletedTask;
             _item = item ?? new TDal();
@@ -58,6 +58,10 @@ namespace FriendManager.BAL.Base
             {
                 IsNew = true;
                 _item = new TDal();
+            }
+            else
+            {
+                IsNew = false;
             }
 
             LoadComplete = true;

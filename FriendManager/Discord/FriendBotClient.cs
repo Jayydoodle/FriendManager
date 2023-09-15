@@ -156,7 +156,8 @@ namespace FriendManager.Discord
                 return;
 
             List<SocketGuildChannel> channels = channels = Guild.Channels.ToList();
-            DiscordGuildModel guildModel = (await DiscordGuildModel.GetAll(new() { x => x.GuildId == Guild.Id })).FirstOrDefault();
+            List<DiscordGuildModel> guilds = await DiscordGuildModel.GetAll(new() { x => x.GuildId == Guild.Id });
+            DiscordGuildModel guildModel = guilds != null ? guilds.FirstOrDefault() : null;
 
             if (guildModel == null)
             {
