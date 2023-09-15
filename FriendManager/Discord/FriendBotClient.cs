@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using TL;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -28,16 +29,16 @@ namespace FriendManager.Discord
         public ulong DiscordServerId;
         public string BotToken;
 
-        private bool _channelChecked;
+        private bool _logChannelChecked;
         private SocketTextChannel _logChannel;
         public SocketTextChannel LogChannel
         {
             get
             {
-                if (_logChannel == null && !_channelChecked && LogChannelId > 0)
+                if (_logChannel == null && !_logChannelChecked && LogChannelId > 0)
                 {
                     _logChannel = Client.GetChannel(LogChannelId) as SocketTextChannel;
-                    _channelChecked = true;
+                    _logChannelChecked = true;
                 }
 
                 return _logChannel;
@@ -64,12 +65,27 @@ namespace FriendManager.Discord
             }
         }
 
+        private SocketGuild _guild;
+        private SocketGuild Guild
+        {
+            get
+            {
+                if (_guild == null && Client != null)
+                    _guild = Client.GetGuild(DiscordServerId);
+
+                return _guild;
+            }
+            set
+            {
+                _guild = value;
+            }
+        }
+
+        public ulong ChannelOfTheDayId { get; set; }
+
         private DiscordSocketClient Client;
         private CommandService Commands;
         private IServiceProvider Services;
-
-        private SocketGuild Guild;
-
         #endregion
 
         #region Configuration
@@ -136,24 +152,18 @@ namespace FriendManager.Discord
             if (peristantChannels == null)
                 peristantChannels = new List<DiscordChannelModel>();
 
-            SocketGuild targetGuild = null;
-            List<SocketGuildChannel> channels = null;
-            DiscordGuildModel guildModel = null;
+            if (!messages.Any())
+                return;
 
-            if (messages.Any())
+            List<SocketGuildChannel> channels = channels = Guild.Channels.ToList();
+            DiscordGuildModel guildModel = (await DiscordGuildModel.GetAll(new() { x => x.GuildId == Guild.Id })).FirstOrDefault();
+
+            if (guildModel == null)
             {
-                targetGuild = Client.GetGuild(DiscordServerId);
-                channels = targetGuild.Channels.ToList();
-
-                guildModel = new DiscordGuildModel(targetGuild.Id);
-                await guildModel.Loading;
-
-                if (guildModel.LoadComplete)
-                {
-                    guildModel.Id = targetGuild.Id;
-                    guildModel.Name = targetGuild.Name;
-                    await guildModel.Save();
-                }
+                guildModel = new DiscordGuildModel();
+                guildModel.Id = Guild.Id;
+                guildModel.Name = Guild.Name;
+                await guildModel.Save();
             }
 
             var groups = messages.GroupBy(x => new
@@ -170,8 +180,8 @@ namespace FriendManager.Discord
 
                 if (category == null && !string.IsNullOrEmpty(guildGroup.Key.ParentChannelName) && guildGroup.Key.ParentChannelId.HasValue)
                 {
-                    RestCategoryChannel newCategory = await targetGuild.CreateCategoryChannelAsync(guildGroup.Key.ParentChannelName);
-                    category = targetGuild.GetChannel(newCategory.Id) as SocketCategoryChannel;
+                    RestCategoryChannel newCategory = await Guild.CreateCategoryChannelAsync(guildGroup.Key.ParentChannelName);
+                    category = Guild.GetChannel(newCategory.Id) as SocketCategoryChannel;
 
                     if (category != null)
                         channels.Add(category);
@@ -181,20 +191,29 @@ namespace FriendManager.Discord
 
                 if (category != null)
                 {
+                    bool wasNewCategory = false;
                     categoryModel = peristantChannels.FirstOrDefault(x => x.Id == category.Id);
 
                     if (categoryModel == null)
                     {
+                        wasNewCategory = true;
                         categoryModel = new DiscordChannelModel();
                         categoryModel.Id = category.Id;
                         categoryModel.Name = category.Name;
-                        categoryModel.GuildId = targetGuild.Id;
-                        categoryModel.ParentChannelId = category != null ? category.Id : (ulong?)null;
-                        categoryModel.SourceGuildId = guildGroup.Key.GuildId;
-                        categoryModel.SourceGuildName = guildGroup.Key.GuildName;
-                        categoryModel.SourceChannelId = guildGroup.Key.ParentChannelId.Value;
-                        categoryModel.SourceChannelName = guildGroup.Key.ParentChannelName;
-                        await categoryModel.Save();
+                        categoryModel.GuildId = Guild.Id;
+                    }
+
+                    categoryModel.ParentChannelId = null;
+                    categoryModel.SourceGuildId = guildGroup.Key.GuildId;
+                    categoryModel.SourceGuildName = guildGroup.Key.GuildName;
+                    categoryModel.SourceChannelId = guildGroup.Key.ParentChannelId.Value;
+                    categoryModel.SourceChannelName = guildGroup.Key.ParentChannelName;
+                    await categoryModel.Save();
+
+                    if (wasNewCategory)
+                    {
+                        peristantChannels.Add(categoryModel);
+                        await EnsureChannelPermissions(new List<DiscordChannelModel> { categoryModel });
                     }
                 }
 
@@ -214,31 +233,43 @@ namespace FriendManager.Discord
 
                     if (textChannel == null)
                     {
-                        RestTextChannel newChannel = category != null ? await targetGuild.CreateTextChannelAsync(channelGroup.Key.ChannelName, x => x.CategoryId = category.Id)
-                                                                      : await targetGuild.CreateTextChannelAsync(channelGroup.Key.ChannelName);
+                        RestTextChannel newChannel = category != null ? await Guild.CreateTextChannelAsync(channelGroup.Key.ChannelName, x => x.CategoryId = category.Id)
+                                                                      : await Guild.CreateTextChannelAsync(channelGroup.Key.ChannelName);
 
-                        textChannel = targetGuild.GetTextChannel(newChannel.Id);
+                        textChannel = Guild.GetTextChannel(newChannel.Id);
 
                         if (textChannel != null)
                             channels.Add(textChannel);
                     }
 
+                    if (category != null && textChannel.CategoryId != category.Id)
+                        await textChannel.ModifyAsync(x => x.CategoryId = category.Id);
+
                     DiscordChannelModel channelModel = peristantChannels.FirstOrDefault(x => x.Id == textChannel.Id);
+                    bool wasNewChannel = false;
 
                     if (channelModel == null)
                     {
+                        wasNewChannel = true;
                         channelModel = new DiscordChannelModel();
                         channelModel.Id = textChannel.Id;
                         channelModel.Name = textChannel.Name;
-                        channelModel.GuildId = targetGuild.Id;
-                        channelModel.ParentChannelId = categoryModel != null ? categoryModel.Id : (ulong?)null;
-                        channelModel.SourceGuildId = channelGroup.Key.GuildId;
-                        channelModel.SourceGuildName = channelGroup.Key.GuildName;
-                        channelModel.SourceChannelId = channelGroup.Key.ChannelId;
-                        channelModel.SourceChannelName = channelGroup.Key.ChannelName;
-                        channelModel.SourceParentChannelId = channelGroup.Key.ParentChannelId;
-                        channelModel.SourceChannelName = channelGroup.Key.ChannelName;
-                        await channelModel.Save();
+                        channelModel.GuildId = Guild.Id;
+                    }
+
+                    channelModel.ParentChannelId = categoryModel != null ? categoryModel.Id : (ulong?)null;
+                    channelModel.SourceGuildId = channelGroup.Key.GuildId;
+                    channelModel.SourceGuildName = channelGroup.Key.GuildName;
+                    channelModel.SourceChannelId = channelGroup.Key.ChannelId;
+                    channelModel.SourceChannelName = channelGroup.Key.ChannelName;
+                    channelModel.SourceParentChannelId = channelGroup.Key.ParentChannelId;
+                    channelModel.SourceChannelName = channelGroup.Key.ChannelName;
+                    await channelModel.Save();
+
+                    if (wasNewChannel)
+                    {
+                        peristantChannels.Add(channelModel);
+                        await EnsureChannelPermissions(new List<DiscordChannelModel> { channelModel });
                     }
 
                     List<DiscordMessageDTO> channelGroupMessages = channelGroup.ToList();
@@ -278,6 +309,39 @@ namespace FriendManager.Discord
             await Task.CompletedTask;
         }
 
+        public async Task EnsureChannelPermissions(List<DiscordChannelModel> peristantChannels)
+        {
+            List<SocketGuildChannel> channels = Guild.Channels.Where(x => peristantChannels.Any(y => y.Id == x.Id)).ToList();
+
+            foreach (var roleConfig in RoleConfigs)
+            {
+                SocketRole role = Guild.Roles.FirstOrDefault(x => x.Id == roleConfig.RoleId);
+
+                if (role == null)
+                    continue;
+
+                foreach (var channel in channels)
+                {
+                    if (channel.Id == ChannelOfTheDayId)
+                    {
+                        await channel.AddPermissionOverwriteAsync(Guild.EveryoneRole, OverwritePermissions.DenyAll(channel).Modify(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, addReactions: PermValue.Allow));
+                        continue;
+                    }
+
+                    SocketTextChannel textChan = channel as SocketTextChannel;
+
+                    if (textChan != null && (textChan.Id == ChannelOfTheDayId || textChan.CategoryId.HasValue && textChan.CategoryId.Value == ChannelOfTheDayId))
+                    {
+                        await channel.AddPermissionOverwriteAsync(Guild.EveryoneRole, OverwritePermissions.DenyAll(channel).Modify(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, addReactions: PermValue.Allow));
+                        continue;
+                    }
+
+                    await channel.AddPermissionOverwriteAsync(Guild.EveryoneRole, OverwritePermissions.DenyAll(channel));
+                    await channel.AddPermissionOverwriteAsync(role, OverwritePermissions.DenyAll(channel).Modify(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, addReactions: PermValue.Allow));
+                }
+            }
+        }
+
         #endregion
 
         #region User Management
@@ -285,9 +349,6 @@ namespace FriendManager.Discord
         public async Task PurgeInvalidUsers()
         {
             if (!Initialized) return;
-
-            if (Guild == null)
-                Guild = Client.GetGuild(DiscordServerId);
 
             string currentExcludedUsers = AppSettings.GetValue(Setting.DiscordExcludedUsers);
             List<string> excludedUsers = !string.IsNullOrEmpty(currentExcludedUsers) ? currentExcludedUsers.Split(',').ToList() : new List<string>();
@@ -304,18 +365,17 @@ namespace FriendManager.Discord
 
         public List<SocketRole> GetRoles()
         {
-            if (Guild == null)
-                Guild = Client.GetGuild(DiscordServerId);
-
             return Guild.Roles.ToList();
+        }
+
+        public List<SocketGuildChannel> GetChannels()
+        {
+            return Guild.Channels.ToList();
         }
 
         private async Task ValidateUser(SocketGuildUser user, List<Holder> holders = null, List<string> excludedUsers = null)
         {
             if (!Initialized) return;
-
-            if (Guild == null)
-                Guild = Client.GetGuild(DiscordServerId);
 
             if (user.IsBot || user.Id == Guild.OwnerId)
                 return;
@@ -338,17 +398,7 @@ namespace FriendManager.Discord
                                    .Where(x => x.UserMapping.DiscordUserName.ToLower() == user.Username.ToLower())
                                    .FirstOrDefault();
 
-            if (holder == null)
-            {
-                await user.KickAsync("User is no longer holding required friend.tech shares");
-
-                if (LogChannel != null)
-                    await LogChannel.SendMessageAsync(string.Format("User '{0}' removed from the server for not holding any shares", user.Username));
-            }
-            else
-            {
-                await AssignUserRoles(user, holder);
-            }
+            await AssignUserRoles(user, holder);
 
             await Task.CompletedTask;
         }
@@ -366,6 +416,17 @@ namespace FriendManager.Discord
         private async Task AssignUserRoles(SocketGuildUser user, Holder holder)
         {
             if (!Initialized) return;
+
+            if(holder == null)
+            {
+                foreach (var config in RoleConfigs)
+                {
+                    if (user.Roles != null && user.Roles.Any(x => x.Id == config.RoleId))
+                        await user.RemoveRoleAsync(config.RoleId);
+                }
+
+                return;
+            }
 
             int.TryParse(holder.Balance, out int numKeys);
 

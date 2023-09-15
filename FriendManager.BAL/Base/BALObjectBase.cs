@@ -61,6 +61,7 @@ namespace FriendManager.BAL.Base
             }
 
             LoadComplete = true;
+            await Task.CompletedTask;
         }
 
         #endregion
@@ -76,6 +77,8 @@ namespace FriendManager.BAL.Base
 
                 await context.SaveChangesAsync().AwaitTimeout();
             }
+
+            IsNew = false;
 
             await Task.CompletedTask;
         }
