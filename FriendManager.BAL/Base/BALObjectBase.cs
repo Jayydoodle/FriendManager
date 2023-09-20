@@ -54,7 +54,7 @@ namespace FriendManager.BAL.Base
         {
             _item = await FetchInstance(primaryKeyValue);
 
-            if(_item == null)
+            if (_item == null)
             {
                 IsNew = true;
                 _item = new TDal();
