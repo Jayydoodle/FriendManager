@@ -7,7 +7,7 @@ using System.Configuration;
 class Program
 {
     private const string ApplicationName = "Friend Manager";
-    private const string VersionNumber = "1.2";
+    private const string VersionNumber = "1.3";
 
     static HttpClient WebClient { get; set; }
 
