@@ -325,18 +325,18 @@ namespace FriendManager.Functions
         {
             ScheduledPurgeEnabled = true;
 
-            int.TryParse(XMLSettings.GetSetting(Setting.DiscordPurgeInterval, ValidateSetting), out int interval);
-
-            if (interval == 0 || interval < Setting.MinPurgeInterval)
-            {
-                AnsiConsole.WriteLine("Invalid purge interval found in configuration settings, using default value of {0} minutes", Setting.DefaultPurgeInterval);
-                interval = Setting.DefaultPurgeInterval;
-            }
-
-            interval = (int)TimeSpan.FromMinutes(interval).TotalMilliseconds;
-
             while (ScheduledPurgeEnabled && Client != null && ExtractionClient != null && Client.Initialized && ExtractionClient.Initialized)
             {
+                int.TryParse(XMLSettings.GetSetting(Setting.DiscordPurgeInterval, ValidateSetting), out int interval);
+
+                if (interval == 0 || interval < Setting.MinPurgeInterval)
+                {
+                    AnsiConsole.WriteLine("Invalid purge interval found in configuration settings, using default value of {0} minutes", Setting.DefaultPurgeInterval);
+                    interval = Setting.DefaultPurgeInterval;
+                }
+
+                interval = (int)TimeSpan.FromMinutes(interval).TotalMilliseconds;
+
                 await RunPurgeRoutine();
                 await Task.Delay(interval);
             }
@@ -445,18 +445,19 @@ namespace FriendManager.Functions
         private async void RunScheduledSync()
         {
             ScheduledSyncEnabled = true;
-            int.TryParse(XMLSettings.GetSetting(Setting.DiscordSyncInterval, ValidateSetting), out int syncInterval);
-
-            if (syncInterval == 0 || syncInterval < Setting.MinSyncInterval)
-            {
-                AnsiConsole.WriteLine("Invalid sync interval found in configuration settings, using default value of {0} minutes", Setting.DefaultSyncInterval);
-                syncInterval = Setting.DefaultSyncInterval;
-            }
-
-            syncInterval = (int)TimeSpan.FromMinutes(syncInterval).TotalMilliseconds;
 
             while (ScheduledSyncEnabled && Client != null && ExtractionClient != null && Client.Initialized && ExtractionClient.Initialized)
             {
+                int.TryParse(XMLSettings.GetSetting(Setting.DiscordSyncInterval, ValidateSetting), out int syncInterval);
+
+                if (syncInterval == 0 || syncInterval < Setting.MinSyncInterval)
+                {
+                    AnsiConsole.WriteLine("Invalid sync interval found in configuration settings, using default value of {0} minutes", Setting.DefaultSyncInterval);
+                    syncInterval = Setting.DefaultSyncInterval;
+                }
+
+                syncInterval = (int)TimeSpan.FromMinutes(syncInterval).TotalMilliseconds;
+
                 await RunSyncRoutine();
                 await Task.Delay(syncInterval);
             }
