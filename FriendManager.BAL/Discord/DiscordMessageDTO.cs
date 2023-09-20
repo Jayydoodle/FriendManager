@@ -19,6 +19,7 @@ namespace FriendManager.BAL.Discord
         public string MessageContent { get; set; }
         public DateTime SentAt { get; set; }
         public List<DiscordAttachmentDTO> Attachments { get; set; }
+        public DiscordEmbedDTO Embed { get; set; }
 
         public DiscordMessageDTO() 
         { 

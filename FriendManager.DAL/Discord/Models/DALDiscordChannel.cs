@@ -22,6 +22,8 @@ namespace FriendManager.DAL.Discord.Models
 
         public ICollection<DALDiscordChannelSyncLog> Logs { get; set; }
 
+        public DateTime CreatedDate { get; set; }
+
         public ulong SourceGuildId { get; set; }
         public string SourceGuildName { get; set; }
         public ulong SourceChannelId { get; set; }

@@ -1,4 +1,5 @@
 ﻿using CustomSpectreConsole.Settings;
+using CustomSpectreConsole;
 using Discord;
 using Discord.Commands;
 using Discord.Rest;
@@ -19,8 +20,10 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using TL;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Net.Mail;
+using Color = Discord.Color;
 
-namespace FriendManager.Discord
+namespace FriendManager.DiscordClients
 {
     public class FriendBotClient : DiscordClientBase
     {
@@ -138,11 +141,25 @@ namespace FriendManager.Discord
 
         #endregion
 
+        #region Public API
+
+        public async Task LogMessage(string message)
+        {
+            if (LogChannel != null)
+                await LogChannel.SendMessageAsync(message);
+
+            await Task.CompletedTask;
+        }
+
+        #endregion
+
         #region Synchronization
 
         public async Task SynchronizeChannels(List<DiscordChannelModel> peristantChannels, List<DiscordMessageDTO> messages)
         {
-            if (!Initialized || messages == null) return;
+            StopRoutine = false;
+
+            if (!Initialized || StopRoutine || messages == null) return;
 
             messages = messages.OrderBy(x => x.GuildName)
                                .ThenBy(x => x.ChannelName)
@@ -177,6 +194,9 @@ namespace FriendManager.Discord
 
             foreach (var guildGroup in groups)
             {
+                if (StopRoutine)
+                    return;
+
                 SocketCategoryChannel category = channels.FirstOrDefault(x => x.Name == guildGroup.Key.ParentChannelName) as SocketCategoryChannel;
 
                 if (category == null && !string.IsNullOrEmpty(guildGroup.Key.ParentChannelName) && guildGroup.Key.ParentChannelId.HasValue)
@@ -202,6 +222,7 @@ namespace FriendManager.Discord
                         categoryModel.Id = category.Id;
                         categoryModel.Name = category.Name;
                         categoryModel.GuildId = Guild.Id;
+                        categoryModel.CreatedDate = DateTime.UtcNow; 
                     }
 
                     categoryModel.ParentChannelId = null;
@@ -229,7 +250,10 @@ namespace FriendManager.Discord
                 });
 
                 foreach(var channelGroup in channelGroups) 
-                { 
+                {
+                    if (StopRoutine)
+                        return;
+
                     SocketTextChannel textChannel = channels.FirstOrDefault(x => x.Name == channelGroup.Key.ChannelName) as SocketTextChannel;
 
                     if (textChannel == null)
@@ -256,6 +280,7 @@ namespace FriendManager.Discord
                         channelModel.Id = textChannel.Id;
                         channelModel.Name = textChannel.Name;
                         channelModel.GuildId = Guild.Id;
+                        channelModel.CreatedDate = DateTime.UtcNow;
                     }
 
                     channelModel.ParentChannelId = categoryModel != null ? categoryModel.Id : (ulong?)null;
@@ -282,21 +307,49 @@ namespace FriendManager.Discord
 
                     for (int i = 0; i < count; i++)
                     {
+                        if (StopRoutine)
+                            return;
+
                         DiscordMessageDTO message = channelGroupMessages[i];
 
-                        if (message.Attachments.Any())
+                        if (!string.IsNullOrEmpty(message.MessageContent))
                         {
-                            if (!string.IsNullOrEmpty(message.MessageContent))
-                                await textChannel.SendMessageAsync(message.MessageContent);
+                            List<string> content = message.MessageContent.ChunkSplit(2000).ToList();
 
-                            foreach (DiscordAttachmentDTO attachment in message.Attachments)
-                                if(!string.IsNullOrEmpty(attachment.DownloadUrl))
-                                    await textChannel.SendMessageAsync(attachment.DownloadUrl);
+                            foreach (var item in content)
+                                await textChannel.SendMessageAsync(text: item, flags: MessageFlags.SuppressEmbeds);
                         }
-                        else
+
+                        foreach (DiscordAttachmentDTO attachment in message.Attachments)
+                            if (!string.IsNullOrEmpty(attachment.DownloadUrl))
+                                await textChannel.SendMessageAsync(attachment.DownloadUrl);
+
+                        if (message.Embed != null)
                         {
-                            if (!string.IsNullOrEmpty(message.MessageContent))
-                                await textChannel.SendMessageAsync(message.MessageContent);
+                            var embed = new EmbedBuilder();
+
+                            if(!string.IsNullOrEmpty(message.Embed.AuthorName))
+                                embed.WithAuthor(message.Embed.AuthorName, message.Embed.AuthorIconUrl);
+
+                            if (message.Embed.TimeStamp.HasValue)
+                                embed.WithTimestamp(message.Embed.TimeStamp.Value);
+
+                            if (!string.IsNullOrEmpty(message.Embed.FooterText))
+                                embed.WithFooter(message.Embed.FooterText, message.Embed.FooterIconUrl);
+                            
+                            embed.ImageUrl = message.Embed.ImageUrl;
+                            embed.WithColor(Color.Magenta);
+
+                            message.Embed.Fields.ForEach(f => 
+                            {
+                                string name = !string.IsNullOrEmpty(f.Name) ? f.Name : "\u200b";
+
+                                if (!string.IsNullOrEmpty(f.Content))
+                                    embed.AddField(name, f.Content);
+                            });
+
+                            if (!string.IsNullOrEmpty(embed.ImageUrl) || (embed.Fields != null && embed.Fields.Any()))
+                                await textChannel.SendMessageAsync(null, false, embed.Build());
                         }
 
                         channelSyncLog.LastSynchedMessageId = message.MessageId;
@@ -408,9 +461,7 @@ namespace FriendManager.Discord
         {
             if (!Initialized) return;
 
-            if (LogChannel != null)
-                await LogChannel.SendMessageAsync(string.Format("User '{0}' joined the server", arg.Username));
-
+            await LogMessage(string.Format("User '{0}' joined the server", arg.Username));
             await ValidateUser(arg);
         }
 
@@ -456,8 +507,8 @@ namespace FriendManager.Discord
             }
             else
             {
-                if (LogChannel != null)
-                    await LogChannel.SendMessageAsync(errorMessage); throwError = true;
+                await LogMessage(errorMessage);
+                throwError = true;
             }
 
             await Task.CompletedTask;

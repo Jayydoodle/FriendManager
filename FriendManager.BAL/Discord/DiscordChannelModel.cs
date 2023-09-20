@@ -90,6 +90,12 @@ namespace FriendManager.BAL.Discord
 
         public DiscordChannelSyncLogModel LatestLog => Logs.FirstOrDefault();
 
+        public DateTime CreatedDate
+        {
+            get { return _item.CreatedDate; }
+            set { _item.CreatedDate = value; }
+        }
+
         public ulong SourceGuildId
         {
             get { return _item.SourceGuildId; }

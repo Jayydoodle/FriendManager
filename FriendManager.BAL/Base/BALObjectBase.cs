@@ -76,8 +76,10 @@ namespace FriendManager.BAL.Base
         {
             using (TContext context = new TContext())
             {
-                if(IsNew)
+                if (IsNew)
                     await context.AddAsync(_item);
+                else
+                    context.Update(_item);
 
                 await context.SaveChangesAsync().AwaitTimeout();
             }

@@ -1,11 +1,12 @@
-﻿using CustomSpectreConsole;
-using Discord;
-using Discord.Gateway;
+﻿extern alias Anarchy;
+using Anarchy::Discord;
+using Anarchy::Discord.Gateway;
+using CustomSpectreConsole;
 using FriendManager.BAL.Discord;
 using FriendManager.Functions;
 using Spectre.Console;
 
-namespace FriendManager.Discord
+namespace FriendManager.DiscordClients
 {
     public class DataExtractionClient : DiscordClientBase
     {
@@ -46,7 +47,9 @@ namespace FriendManager.Discord
 
         public async Task<List<DiscordMessageDTO>> DownloadGuildData(List<DiscordChannelModel> peristantChannels)
         {
-            if (!Initialized)
+            StopRoutine = false;
+
+            if (!Initialized || StopRoutine)
                 return new List<DiscordMessageDTO>();
 
             List<DiscordMessageDTO> messages = new List<DiscordMessageDTO>();
@@ -63,6 +66,9 @@ namespace FriendManager.Discord
 
             foreach(var guild in guilds) 
             {
+                if (StopRoutine)
+                    return messages;
+
                 DiscordGuildExtractionConfig setting = extractionSettings.FirstOrDefault(x => x.GuildId == guild.Id);
 
                 List<ulong> excludedChannelIds = null;
@@ -80,6 +86,9 @@ namespace FriendManager.Discord
 
                 foreach (var x in channels.Where(x => x.IsText).ToList())
                 {
+                    if (StopRoutine)
+                        return messages;
+
                     TextChannel channel = x as TextChannel;
 
                     DiscordChannelModel persistantChannel = peristantChannels.FirstOrDefault(chan => chan.SourceChannelId == channel.Id);
@@ -95,6 +104,9 @@ namespace FriendManager.Discord
 
                     foreach (DiscordMessage message in channelMessages)
                     {
+                        if (StopRoutine)
+                            return messages;
+
                         GuildChannel parentChannel = channels.FirstOrDefault(c => c.Id == channel.ParentId);
 
                         DiscordMessageDTO dto = new DiscordMessageDTO();
@@ -107,6 +119,41 @@ namespace FriendManager.Discord
                         dto.ParentChannelName = parentChannel != null ? parentChannel.Name : null;
                         dto.MessageContent = message.Content;
                         dto.SentAt = message.SentAt;
+
+                        if (message.Embed != null)
+                        {
+                            dto.Embed = new DiscordEmbedDTO();
+                            dto.Embed.TimeStamp = message.Embed.Timestamp;
+
+                            if(message.Embed.Author != null)
+                            {
+                                dto.Embed.AuthorName = message.Embed.Author.Name;
+                                dto.Embed.AuthorIconUrl = message.Embed.Author.IconUrl;
+                                dto.Embed.AuthorIconProxyUrl = message.Embed.Author.IconProxyUrl;
+                            }
+
+                            if (message.Embed.Footer != null)
+                            {
+                                dto.Embed.FooterText = message.Embed.Footer.Text;
+                                dto.Embed.FooterIconUrl = message.Embed.Footer.IconUrl;
+                                dto.Embed.FooterIconProxyUrl = message.Embed.Footer.IconProxyUrl;
+                            }
+
+                            if (message.Embed.Fields != null)
+                            {
+                                foreach (var item in message.Embed.Fields)
+                                {
+                                    dto.Embed.Fields.Add(new DiscordEmbedFieldDTO()
+                                    {
+                                        Content = item.Content,
+                                        Name = item.Name,
+                                    });
+                                }
+                            }
+
+                            if (message.Embed.Image != null)
+                                dto.Embed.ImageUrl = message.Embed.Image.Url;
+                        }
 
                         foreach (DiscordAttachment attachment in message.Attachments)
                         {

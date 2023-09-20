@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace FriendManager.Discord
+namespace FriendManager.DiscordClients
 {
     public abstract class DiscordClientBase
     {
@@ -13,6 +13,7 @@ namespace FriendManager.Discord
         public bool Initialized { get; set; }
         public bool Locked { get; set; }
         public ulong LogChannelId { get; set; }
+        public bool StopRoutine { get; set; }
 
         #endregion
 

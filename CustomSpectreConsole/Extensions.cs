@@ -19,6 +19,12 @@ namespace CustomSpectreConsole
             return Regex.Replace(str, @"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|(?<=[0-9])(?=[A-Z][a-z])", " ");
         }
 
+        public static IEnumerable<string> ChunkSplit(this string str, int maxChunkSize)
+        {
+            for (int i = 0; i < str.Length; i += maxChunkSize)
+                yield return str.Substring(i, Math.Min(maxChunkSize, str.Length - i));
+        }
+
         #endregion
 
         #region Type Extensions
