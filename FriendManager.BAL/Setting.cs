@@ -9,10 +9,10 @@ namespace FriendManager
 
         #region Constants
 
-        public const int MinSyncInterval = 5;
+        public const int MinSyncInterval = 1;
         public const int DefaultSyncInterval = 10;
 
-        public const int MinPurgeInterval = 10;
+        public const int MinPurgeInterval = 1;
         public const int DefaultPurgeInterval = 60;
 
         #endregion
