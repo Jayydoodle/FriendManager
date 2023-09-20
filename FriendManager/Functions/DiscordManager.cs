@@ -11,6 +11,8 @@ using TL;
 using CustomSpectreConsole;
 using CustomSpectreConsole.Settings;
 using Spectre.Console;
+using FriendManager.DAL.Discord;
+using Microsoft.EntityFrameworkCore;
 
 namespace FriendManager.Functions
 {
@@ -107,6 +109,13 @@ namespace FriendManager.Functions
             }
 
             Thread.Sleep(1000);
+
+            using (var context = new DiscordContext())
+            {
+                AnsiConsole.MarkupLine("Connected to database: [blue]{0}[/]\n", context.Database.GetDbConnection().Database);
+            }
+
+            
 
             string extractionServerIds = XMLSettings.GetValue(Setting.DiscordServerExtractionSettings);
 

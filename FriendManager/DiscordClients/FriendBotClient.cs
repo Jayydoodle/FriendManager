@@ -89,6 +89,12 @@ namespace FriendManager.DiscordClients
         private DiscordSocketClient Client;
         private CommandService Commands;
         private IServiceProvider Services;
+
+        private RequestOptions RequestOptions { get; set; }
+        private int DefaultMessageDelay = 0;
+        private int ExceededMessageDelay = 1000;
+        private int MessageDelay = 0;
+
         #endregion
 
         #region Configuration
@@ -114,6 +120,9 @@ namespace FriendManager.DiscordClients
                 .BuildServiceProvider();
 
             Client.Log += ClientLog;
+
+            RequestOptions = new RequestOptions();
+            RequestOptions.RatelimitCallback = LogRateLimit;
 
             await RegisterCommandsAsync();
 
@@ -317,12 +326,20 @@ namespace FriendManager.DiscordClients
                             List<string> content = message.MessageContent.ChunkSplit(2000).ToList();
 
                             foreach (var item in content)
-                                await textChannel.SendMessageAsync(text: item, flags: MessageFlags.SuppressEmbeds);
+                            {
+                                await textChannel.SendMessageAsync(text: item, flags: MessageFlags.SuppressEmbeds, options: RequestOptions);
+                                await Task.Delay(MessageDelay);
+                            }
                         }
 
                         foreach (DiscordAttachmentDTO attachment in message.Attachments)
+                        {
                             if (!string.IsNullOrEmpty(attachment.DownloadUrl))
-                                await textChannel.SendMessageAsync(attachment.DownloadUrl);
+                            {
+                                await textChannel.SendMessageAsync(attachment.DownloadUrl, options: RequestOptions);
+                                await Task.Delay(MessageDelay);
+                            }
+                        }
 
                         if (message.Embed != null)
                         {
@@ -349,7 +366,10 @@ namespace FriendManager.DiscordClients
                             });
 
                             if (!string.IsNullOrEmpty(embed.ImageUrl) || (embed.Fields != null && embed.Fields.Any()))
-                                await textChannel.SendMessageAsync(null, false, embed.Build());
+                            {
+                                await textChannel.SendMessageAsync(null, false, embed.Build(), options: RequestOptions);
+                                await Task.Delay(MessageDelay);
+                            }
                         }
 
                         channelSyncLog.LastSynchedMessageId = message.MessageId;
@@ -547,6 +567,27 @@ namespace FriendManager.DiscordClients
             {
                 await channel.DeleteMessagesAsync(messages);
                 messages = await channel.GetMessagesAsync().FlattenAsync();
+            }
+        }
+
+        protected async Task LogRateLimit(IRateLimitInfo info)
+        {
+            if (info.Remaining == 0)
+            {
+                string currentTime = DateTime.Now.ToLongTimeString();
+                LogMessage(string.Format("Rate limit exceeded {0}\nBucket: {1}\nEndpoint: {2}", currentTime, info.Bucket, info.Endpoint));
+
+                AnsiConsole.MarkupLine("[red]Rate Limit Exceeded[/]\n{0}", currentTime);
+                AnsiConsole.WriteLine($"{info.IsGlobal} {info.Limit} {info.Remaining} {info.RetryAfter} {info.Reset} {info.ResetAfter} {info.Bucket} {info.Lag} {info.Endpoint}");
+            }
+
+            if (info.Remaining.HasValue && info.Remaining.Value <= 1)
+            {
+                MessageDelay = ExceededMessageDelay;
+            }
+            else
+            {
+                MessageDelay = DefaultMessageDelay;
             }
         }
 
