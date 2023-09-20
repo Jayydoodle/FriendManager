@@ -12,6 +12,7 @@ namespace FriendManager.DiscordClients
     {
         #region Properties
 
+        public FriendBotClient BotClient { get; set; }
         public DiscordSocketClient Client { get; set; }
         public string DiscordUserToken { get; set; }
 
@@ -97,7 +98,15 @@ namespace FriendManager.DiscordClients
                     if(persistantChannel != null && persistantChannel.LatestLog != null)
                         filter = new MessageFilters() { AfterId = persistantChannel.LatestLog.LastSynchedMessageId };
 
-                    IReadOnlyList<DiscordMessage> channelMessages = await channel.GetMessagesAsync(filter).AwaitTimeout(false);
+                    Action onGetMessagesTimeout = async () =>
+                    {
+                        Logger.LogWarning(string.Format("The client timed out when trying to get messages from the channel [yellow]{0}[/] ({1})", channel.Name, channel.Id));
+
+                        if (BotClient != null)
+                            await BotClient.LogMessage(string.Format("The client timed out when trying to get messages from the channel \"{0}\" ({1})", channel.Name, channel.Id));
+                    };
+
+                    IReadOnlyList<DiscordMessage> channelMessages = await channel.GetMessagesAsync(filter).AwaitTimeout(logError: false, onActionTimeout: onGetMessagesTimeout);
 
                     if (channelMessages == null)
                         continue;

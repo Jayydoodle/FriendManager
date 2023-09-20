@@ -89,6 +89,18 @@ namespace FriendManager.BAL.Base
             await Task.CompletedTask;
         }
 
+        protected async Task InternalDelete()
+        {
+            using (TContext context = new TContext())
+            {
+                context.Remove(_item);
+
+                await context.SaveChangesAsync().AwaitTimeout();
+            }
+
+            await Task.CompletedTask;
+        }
+
         private static async Task<TDal> FetchInstance(object primaryKeyValue)
         {
             TDal item;

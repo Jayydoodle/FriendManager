@@ -122,7 +122,7 @@ namespace CustomSpectreConsole
 
         #region Tasks
 
-        public static async Task<T> AwaitTimeout<T>(this Task<T> task, bool logError = true, int timeout = 12000)
+        public static async Task<T> AwaitTimeout<T>(this Task<T> task, bool logError = true, int timeout = 12000, Action onActionTimeout = null)
         {
             if (await Task.WhenAny(task, Task.Delay(timeout)) == task)
             {
@@ -133,6 +133,9 @@ namespace CustomSpectreConsole
             }
             else
             {
+                if (!task.IsCompleted && onActionTimeout != null)
+                    onActionTimeout();
+
                 return default(T);
             }
         }

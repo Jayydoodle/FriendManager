@@ -36,6 +36,11 @@ namespace FriendManager.BAL.Discord
             await InternalSave();
         }
 
+        public virtual async Task Delete()
+        {
+            await InternalDelete();
+        }
+
         #endregion
 
         #region Static API

@@ -38,5 +38,20 @@ namespace CustomSpectreConsole
 
             AnsiConsole.WriteLine();
         }
+
+        public static void LogWarning(string message)
+        {
+            AnsiConsole.WriteLine();
+
+            Rule rule = new Rule(string.Format("\n[orange1]Warning[/]\n")).DoubleBorder<Rule>();
+            AnsiConsole.Write(rule);
+
+            AnsiConsole.MarkupLine(message);
+
+            rule = new Rule(string.Format("\n[orange1]Warning End[/]\n")).DoubleBorder<Rule>();
+            AnsiConsole.Write(rule);
+
+            AnsiConsole.WriteLine();
+        }
     }
 }

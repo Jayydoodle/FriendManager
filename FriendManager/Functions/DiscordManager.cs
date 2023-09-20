@@ -47,18 +47,19 @@ namespace FriendManager.Functions
             List<ListOption> listOptions = new List<ListOption>();
 
             listOptions.Add(new ListOption("Show Holders", ShowHolders));
-            listOptions.Add(new ListOption("Manage Excluded Users", ManageExcludedUsers));
             listOptions.Add(new ListOption("Purge Invalid Users", PurgeInvalidUsers));
             listOptions.Add(new ListOption("Run Scheduled User Purge", RunScheduledPurge));
             listOptions.Add(new ListOption("Synchronize Data", SynchronizeData));
             listOptions.Add(new ListOption("Run Scheduled Synchronization", RunScheduledSync));
             listOptions.Add(new ListOption("Stop Sync Routines", StopSyncRoutines));
-            listOptions.Add(new ListOption("Ensure Channel Permissions", EnsureChannelPermissions));
             listOptions.Add(new ListOption("Edit Channel Of The Day", EditChannelOfTheDay));
             listOptions.Add(new ListOption("Edit Configuration", EditConfiguration));
-            listOptions.Add(new ListOption("Manage Target Servers", EditTargetServerConfig));
+            listOptions.Add(new ListOption("Ensure Channel Permissions", EnsureChannelPermissions));
             listOptions.Add(new ListOption("Manage Excluded Channels", EditChannelConfig));
+            listOptions.Add(new ListOption("Manage Excluded Users", ManageExcludedUsers));
+            listOptions.Add(new ListOption("Manage Target Servers", EditTargetServerConfig));
             listOptions.Add(new ListOption("Manage Roles", EditRoleConfig));
+            listOptions.Add(new ListOption("Rebuild Channels", RebuildChannels));
             listOptions.AddRange(base.GetListOptions());
             listOptions.Add(GetHelpOption());
 
@@ -86,6 +87,7 @@ namespace FriendManager.Functions
             {
                 ExtractionClient = new DataExtractionClient();
                 ExtractionClient.DiscordUserToken = XMLSettings.GetSetting(Setting.DiscordUserToken, null, new PromptSettings() { IsSecret = true });
+                ExtractionClient.BotClient = Client;
             }
 
             if (!Client.Initialized)
@@ -499,6 +501,31 @@ namespace FriendManager.Functions
             }
 
             await Task.CompletedTask;
+        }
+
+        private async void RebuildChannels()
+        {
+            StopSyncRoutines();
+
+            List<DiscordChannelModel> availableChannels = GetChannels().Result;
+
+            MultiSelectionPrompt<DiscordChannelModel> prompt = new MultiSelectionPrompt<DiscordChannelModel>();
+            prompt.Title = "Select the channels you want to rebuild";
+            prompt.InstructionsText = "[grey](Press [blue]<space>[/] to toggle an option, [green]<enter>[/] to continue)[/]\n";
+            prompt.Required = false;
+            prompt.PageSize = 20;
+            prompt.UseConverter(x => string.Format("{0} ({1})", x.Name, x.Id));
+
+            prompt.AddChoices(availableChannels);
+
+            List<DiscordChannelModel> choices = AnsiConsole.Prompt(prompt);
+            List<ulong> channelIds = choices.Select(x => x.Id).ToList();
+
+            List<DiscordChannelSyncLogModel> logs = DiscordChannelSyncLogModel.GetAll(new() { x => channelIds.Contains(x.ChannelId) }).Result;
+
+
+            logs.ForEach(x => x.Delete());
+            Client.RebuildChannels(choices);
         }
 
         #endregion

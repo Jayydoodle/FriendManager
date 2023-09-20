@@ -363,6 +363,21 @@ namespace FriendManager.DiscordClients
             await Task.CompletedTask;
         }
 
+        public async Task RebuildChannels(List<DiscordChannelModel> peristantChannels)
+        {
+            List<SocketGuildChannel> channels = Guild.Channels.Where(x => peristantChannels.Any(y => y.Id == x.Id)).ToList();
+
+            foreach (var item in channels)
+            {
+                SocketTextChannel channel = item as SocketTextChannel;
+
+                if (channel == null)
+                    continue;
+
+                await DeleteChannelMessages(channel);
+            }
+        }
+
         public async Task EnsureChannelPermissions(List<DiscordChannelModel> peristantChannels)
         {
             List<SocketGuildChannel> channels = Guild.Channels.Where(x => peristantChannels.Any(y => y.Id == x.Id)).ToList();
@@ -522,6 +537,17 @@ namespace FriendManager.DiscordClients
         {
             Console.WriteLine(arg);
             await Task.CompletedTask;
+        }
+
+        private async Task DeleteChannelMessages(SocketTextChannel channel)
+        {
+            var messages = await channel.GetMessagesAsync().FlattenAsync();
+
+            while (messages != null && messages.Any())
+            {
+                await channel.DeleteMessagesAsync(messages);
+                messages = await channel.GetMessagesAsync().FlattenAsync();
+            }
         }
 
         #endregion
