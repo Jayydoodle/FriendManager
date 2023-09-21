@@ -96,7 +96,7 @@ namespace FriendManager.DiscordClients
                     MessageFilters filter = null;
 
                     if(persistantChannel != null && persistantChannel.LatestLog != null)
-                        filter = new MessageFilters() { AfterId = persistantChannel.LatestLog.LastSynchedMessageId, Limit = 50 };
+                        filter = new MessageFilters() { AfterId = persistantChannel.LatestLog.LastSynchedMessageId, Limit = 100 };
 
                     Action onGetMessagesTimeout = async () =>
                     {
