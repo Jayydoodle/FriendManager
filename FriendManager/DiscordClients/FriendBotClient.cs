@@ -93,7 +93,7 @@ namespace FriendManager.DiscordClients
         private RequestOptions RequestOptions { get; set; }
         private int DefaultMessageDelay = 0;
         private int ExceededMessageDelay = 1000;
-        private int MessageDelay = 0;
+        private int MessageDelay = 300;
 
         #endregion
 
