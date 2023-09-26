@@ -62,6 +62,7 @@ namespace FriendManager.Functions
             listOptions.Add(new ListOption("Manage Target Servers", EditTargetServerConfig));
             listOptions.Add(new ListOption("Manage Roles", EditRoleConfig));
             listOptions.Add(new ListOption("Rebuild Channels", RebuildChannels));
+            listOptions.Add(new ListOption("Delete Channels", DeleteChannels));
             listOptions.AddRange(base.GetListOptions());
             listOptions.Add(GetHelpOption());
 
@@ -487,8 +488,6 @@ namespace FriendManager.Functions
                 List<DiscordMessageDTO> messages = await ExtractionClient.DownloadGuildData(channels);
                 await Client.SynchronizeChannels(channels, messages);
 
-                AnsiConsole.MarkupLine("[green]Synchronization Complete - {0}[/]\n", DateTime.Now.ToShortTimeString());
-
                 RunningSyncRoutine = false;
 
             }
@@ -532,9 +531,41 @@ namespace FriendManager.Functions
 
             List<DiscordChannelSyncLogModel> logs = DiscordChannelSyncLogModel.GetAll(new() { x => channelIds.Contains(x.ChannelId) }).Result;
 
+            AnsiConsole.MarkupLine("\n[yellow]Channel Rebuilds In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
 
             logs.ForEach(x => x.Delete());
             Client.RebuildChannels(choices);
+
+            AnsiConsole.MarkupLine("\n[green]Channel Rebuilds Complete - {0}[/]", DateTime.Now.ToShortTimeString());
+        }
+
+        private async void DeleteChannels()
+        {
+            StopSyncRoutines();
+
+            List<DiscordChannelModel> availableChannels = GetChannels().Result;
+
+            MultiSelectionPrompt<DiscordChannelModel> prompt = new MultiSelectionPrompt<DiscordChannelModel>();
+            prompt.Title = "Select the channels you want to delete";
+            prompt.InstructionsText = "[grey](Press [blue]<space>[/] to toggle an option, [green]<enter>[/] to continue)[/]\n";
+            prompt.Required = false;
+            prompt.PageSize = 20;
+            prompt.UseConverter(x => string.Format("{0} ({1})", x.Name, x.Id));
+
+            prompt.AddChoices(availableChannels);
+
+            List<DiscordChannelModel> choices = AnsiConsole.Prompt(prompt);
+            List<ulong> channelIds = choices.Select(x => x.Id).ToList();
+
+            List<DiscordChannelSyncLogModel> logs = DiscordChannelSyncLogModel.GetAll(new() { x => channelIds.Contains(x.ChannelId) }).Result;
+
+            AnsiConsole.MarkupLine("\n[yellow]Delete Channels In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
+
+            logs.ForEach(x => x.Delete());
+            Client.DeleteChannels(choices);
+            choices.ForEach(x => x.Delete());
+
+            AnsiConsole.MarkupLine("\n[green]Delete Channels Complete - {0}[/]", DateTime.Now.ToShortTimeString());
         }
 
         #endregion

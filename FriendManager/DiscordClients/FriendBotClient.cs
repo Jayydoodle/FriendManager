@@ -206,7 +206,13 @@ namespace FriendManager.DiscordClients
                 if (StopRoutine)
                     return;
 
-                SocketCategoryChannel category = channels.FirstOrDefault(x => x.Name == guildGroup.Key.ParentChannelName) as SocketCategoryChannel;
+                DiscordChannelModel categoryModel = null;
+                
+                if (guildGroup.Key.ParentChannelId.HasValue)
+                    categoryModel = peristantChannels.FirstOrDefault(x => x.SourceChannelId == guildGroup.Key.ParentChannelId);
+
+                SocketCategoryChannel category = categoryModel != null ? channels.FirstOrDefault(x => x.Id == categoryModel.Id) as SocketCategoryChannel
+                                                                       : channels.FirstOrDefault(x => x.Name == guildGroup.Key.ParentChannelName) as SocketCategoryChannel;
 
                 if (category == null && !string.IsNullOrEmpty(guildGroup.Key.ParentChannelName) && guildGroup.Key.ParentChannelId.HasValue)
                 {
@@ -217,23 +223,23 @@ namespace FriendManager.DiscordClients
                         channels.Add(category);
                 }
 
-                DiscordChannelModel categoryModel = null;
+                if (category != null && !string.Equals(category.Name, guildGroup.Key.ParentChannelName))
+                    await category.ModifyAsync(x => x.Name =  guildGroup.Key.ParentChannelName);
 
                 if (category != null)
                 {
                     bool wasNewCategory = false;
-                    categoryModel = peristantChannels.FirstOrDefault(x => x.Id == category.Id);
 
                     if (categoryModel == null)
                     {
                         wasNewCategory = true;
                         categoryModel = new DiscordChannelModel();
                         categoryModel.Id = category.Id;
-                        categoryModel.Name = category.Name;
                         categoryModel.GuildId = Guild.Id;
                         categoryModel.CreatedDate = DateTime.UtcNow; 
                     }
 
+                    categoryModel.Name = category.Name;
                     categoryModel.ParentChannelId = null;
                     categoryModel.SourceGuildId = guildGroup.Key.GuildId;
                     categoryModel.SourceGuildName = guildGroup.Key.GuildName;
@@ -263,7 +269,10 @@ namespace FriendManager.DiscordClients
                     if (StopRoutine)
                         return;
 
-                    SocketTextChannel textChannel = channels.FirstOrDefault(x => x.Name == channelGroup.Key.ChannelName) as SocketTextChannel;
+                    DiscordChannelModel channelModel = peristantChannels.FirstOrDefault(x => x.SourceChannelId == channelGroup.Key.ChannelId);
+
+                    SocketTextChannel textChannel = channelModel != null ? channels.FirstOrDefault(x => x.Id == channelModel.Id) as SocketTextChannel
+                                                                         : channels.FirstOrDefault(x => x.Name == channelGroup.Key.ChannelName) as SocketTextChannel;
 
                     if (textChannel == null)
                     {
@@ -276,10 +285,12 @@ namespace FriendManager.DiscordClients
                             channels.Add(textChannel);
                     }
 
+                    if (textChannel != null && !string.Equals(textChannel.Name, channelGroup.Key.ChannelName))
+                        await textChannel.ModifyAsync(x => x.Name = channelGroup.Key.ChannelName);
+
                     if (category != null && textChannel.CategoryId != category.Id)
                         await textChannel.ModifyAsync(x => x.CategoryId = category.Id);
 
-                    DiscordChannelModel channelModel = peristantChannels.FirstOrDefault(x => x.Id == textChannel.Id);
                     bool wasNewChannel = false;
 
                     if (channelModel == null)
@@ -287,11 +298,11 @@ namespace FriendManager.DiscordClients
                         wasNewChannel = true;
                         channelModel = new DiscordChannelModel();
                         channelModel.Id = textChannel.Id;
-                        channelModel.Name = textChannel.Name;
                         channelModel.GuildId = Guild.Id;
                         channelModel.CreatedDate = DateTime.UtcNow;
                     }
 
+                    channelModel.Name = textChannel.Name;
                     channelModel.ParentChannelId = categoryModel != null ? categoryModel.Id : (ulong?)null;
                     channelModel.SourceGuildId = channelGroup.Key.GuildId;
                     channelModel.SourceGuildName = channelGroup.Key.GuildName;
@@ -396,6 +407,14 @@ namespace FriendManager.DiscordClients
 
                 await DeleteChannelMessages(channel);
             }
+        }
+
+        public async Task DeleteChannels(List<DiscordChannelModel> peristantChannels)
+        {
+            List<SocketGuildChannel> channels = Guild.Channels.Where(x => peristantChannels.Any(y => y.Id == x.Id)).ToList();
+
+            foreach (var item in channels)
+                await item.DeleteAsync();
         }
 
         public async Task EnsureChannelPermissions(List<DiscordChannelModel> peristantChannels)
