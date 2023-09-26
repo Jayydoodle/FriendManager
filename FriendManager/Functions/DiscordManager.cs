@@ -531,12 +531,20 @@ namespace FriendManager.Functions
 
             List<DiscordChannelSyncLogModel> logs = DiscordChannelSyncLogModel.GetAll(new() { x => channelIds.Contains(x.ChannelId) }).Result;
 
-            AnsiConsole.MarkupLine("\n[yellow]Channel Rebuilds In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
+            try
+            {
+                AnsiConsole.MarkupLine("\n[yellow]Channel Rebuilds In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
 
-            logs.ForEach(x => x.Delete());
-            Client.RebuildChannels(choices);
+                logs.ForEach(x => x.Delete());
+                Client.RebuildChannels(choices);
 
-            AnsiConsole.MarkupLine("\n[green]Channel Rebuilds Complete - {0}[/]", DateTime.Now.ToShortTimeString());
+                AnsiConsole.MarkupLine("\n[green]Channel Rebuilds Complete - {0}[/]", DateTime.Now.ToShortTimeString());
+            }
+            catch (Exception e)
+            {
+                e.LogException();
+                AnsiConsole.MarkupLine("[red]Channel Rebuilds Failed - {0}[/]\n", DateTime.Now.ToShortTimeString());
+            }
         }
 
         private async void DeleteChannels()
@@ -559,13 +567,21 @@ namespace FriendManager.Functions
 
             List<DiscordChannelSyncLogModel> logs = DiscordChannelSyncLogModel.GetAll(new() { x => channelIds.Contains(x.ChannelId) }).Result;
 
-            AnsiConsole.MarkupLine("\n[yellow]Delete Channels In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
+            try
+            {
+                AnsiConsole.MarkupLine("\n[yellow]Channel Deletion In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
 
-            logs.ForEach(x => x.Delete());
-            Client.DeleteChannels(choices);
-            choices.ForEach(x => x.Delete());
+                logs.ForEach(x => x.Delete());
+                Client.DeleteChannels(choices);
+                choices.ForEach(x => x.Delete());
 
-            AnsiConsole.MarkupLine("\n[green]Delete Channels Complete - {0}[/]", DateTime.Now.ToShortTimeString());
+                AnsiConsole.MarkupLine("\n[green]Channel Deletion Complete - {0}[/]", DateTime.Now.ToShortTimeString());
+            }
+            catch (Exception e)
+            {
+                e.LogException();
+                AnsiConsole.MarkupLine("[red]Channel Deletion Failed - {0}[/]\n", DateTime.Now.ToShortTimeString());
+            }
         }
 
         #endregion
