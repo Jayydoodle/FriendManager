@@ -79,7 +79,7 @@ namespace FriendManager.BAL.Base
                 if (IsNew)
                     await context.AddAsync(_item);
                 else
-                    context.Update(_item);
+                    context.Entry(_item).State = EntityState.Modified;
 
                 await context.SaveChangesAsync().AwaitTimeout();
             }

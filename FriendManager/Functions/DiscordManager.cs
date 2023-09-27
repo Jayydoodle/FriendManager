@@ -13,6 +13,7 @@ using CustomSpectreConsole.Settings;
 using Spectre.Console;
 using FriendManager.DAL.Discord;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace FriendManager.Functions
 {
@@ -356,6 +357,15 @@ namespace FriendManager.Functions
 
         private async Task RunPurgeRoutine()
         {
+            if (RunningSyncRoutine)
+            {
+                string message = "Purge routine attempted to run again while already running";
+                AnsiConsole.MarkupLine("[orange1]{0}[/]", message);
+                Client.LogMessage(message);
+
+                return;
+            }
+
             try
             {
                 RunningPurgeRoutine = true;
@@ -477,6 +487,15 @@ namespace FriendManager.Functions
 
         private async Task RunSyncRoutine()
         {
+            if (RunningSyncRoutine)
+            {
+                string message = "Synchronization routine attempted to run again while already running";
+                AnsiConsole.MarkupLine("[orange1]{0}[/]", message);
+                Client.LogMessage(message);
+
+                return;
+            }
+
             try
             {
                 RunningSyncRoutine = true;
@@ -484,9 +503,14 @@ namespace FriendManager.Functions
                 AnsiConsole.MarkupLine("\n[yellow]Synchronization In Progress - {0}[/]", DateTime.Now.ToShortTimeString());
 
                 List<DiscordChannelModel> channels = await GetChannels();
+                List<DiscordChannelDTO> sourceChannels = await ExtractionClient.GetChannels();
 
-                List<DiscordMessageDTO> messages = await ExtractionClient.DownloadGuildData(channels);
-                await Client.SynchronizeChannels(channels, messages);
+                await Client.SynchronizeChannelStructure(channels, sourceChannels);
+                List<DiscordMessageDTO> messages = await ExtractionClient.GetMessages(channels);
+
+                await Client.SynchronizeChannelMessages(messages);
+
+                AnsiConsole.MarkupLine("\n[yellow]Synchronization Complete - {0}[/]", DateTime.Now.ToShortTimeString());
 
                 RunningSyncRoutine = false;
 
@@ -515,14 +539,15 @@ namespace FriendManager.Functions
         {
             StopSyncRoutines();
 
-            List<DiscordChannelModel> availableChannels = GetChannels().Result;
+            Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+            List<DiscordChannelModel> availableChannels = GetChannels().Result.OrderBy(x => !x.ParentChannelId.HasValue).ThenBy(x => rgx.Replace(x.Name, "")).ToList();
 
             MultiSelectionPrompt<DiscordChannelModel> prompt = new MultiSelectionPrompt<DiscordChannelModel>();
             prompt.Title = "Select the channels you want to rebuild";
             prompt.InstructionsText = "[grey](Press [blue]<space>[/] to toggle an option, [green]<enter>[/] to continue)[/]\n";
             prompt.Required = false;
             prompt.PageSize = 20;
-            prompt.UseConverter(x => string.Format("{0} ({1})", x.Name, x.Id));
+            prompt.UseConverter(x => string.Format("{0} ({1})", rgx.Replace(x.Name, ""), x.Id));
 
             prompt.AddChoices(availableChannels);
 
@@ -543,14 +568,15 @@ namespace FriendManager.Functions
         {
             StopSyncRoutines();
 
-            List<DiscordChannelModel> availableChannels = GetChannels().Result;
+            Regex rgx = new Regex("[^a-zA-Z0-9 -]");
+            List<DiscordChannelModel> availableChannels = GetChannels().Result.OrderBy(x => !x.ParentChannelId.HasValue).ThenBy(x => rgx.Replace(x.Name, "")).ToList();
 
             MultiSelectionPrompt<DiscordChannelModel> prompt = new MultiSelectionPrompt<DiscordChannelModel>();
             prompt.Title = "Select the channels you want to delete";
             prompt.InstructionsText = "[grey](Press [blue]<space>[/] to toggle an option, [green]<enter>[/] to continue)[/]\n";
             prompt.Required = false;
             prompt.PageSize = 20;
-            prompt.UseConverter(x => string.Format("{0} ({1})", x.Name, x.Id));
+            prompt.UseConverter(x => string.Format("{0} ({1})", rgx.Replace(x.Name, ""), x.Id));
 
             prompt.AddChoices(availableChannels);
 

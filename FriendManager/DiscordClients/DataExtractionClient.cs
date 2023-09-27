@@ -46,7 +46,65 @@ namespace FriendManager.DiscordClients
             Client.Logout();
         }
 
-        public async Task<List<DiscordMessageDTO>> DownloadGuildData(List<DiscordChannelModel> peristantChannels)
+        public async Task<List<DiscordChannelDTO>> GetChannels()
+        {
+            StopRoutine = false;
+
+            if (!Initialized || StopRoutine)
+                return new List<DiscordChannelDTO>();
+
+            List<DiscordChannelDTO> channels = new List<DiscordChannelDTO>();
+
+            var guilds = await Client.GetGuildsAsync().AwaitTimeout();
+
+            if (guilds == null)
+                return channels;
+
+            List<DiscordGuildExtractionConfig> extractionSettings = DiscordManager.GetExtractionSettings();
+            List<ulong> targerServerIds = extractionSettings.Select(x => x.GuildId).ToList();
+
+            guilds = guilds.Where(x => targerServerIds.Contains(x.Id)).ToList();
+
+            foreach (var guild in guilds)
+            {
+                if (StopRoutine)
+                    return channels;
+
+                DiscordGuildExtractionConfig setting = extractionSettings.FirstOrDefault(x => x.GuildId == guild.Id);
+
+                List<ulong> excludedChannelIds = null;
+
+                if (setting != null)
+                    excludedChannelIds = setting.ExcludedChannelIds;
+
+                IReadOnlyList<GuildChannel> guildChannels = await guild.GetChannelsAsync().AwaitTimeout();
+
+                if (guildChannels == null)
+                    continue;
+
+                if (excludedChannelIds != null)
+                    guildChannels = guildChannels.Where(x => !excludedChannelIds.Contains(x.Id)).ToList();
+
+                foreach(var guildChannel in guildChannels.Where(x => x.IsText))
+                {
+                    GuildChannel parentChannel = guildChannels.FirstOrDefault(c => c.Id == guildChannel.ParentId);
+
+                    channels.Add(new DiscordChannelDTO()
+                    {
+                        GuildId = guild.Id,
+                        GuildName = guild.Name,
+                        ChannelId = guildChannel.Id,
+                        ChannelName = guildChannel.Name,
+                        ParentChannelId = guildChannel.ParentId,
+                        ParentChannelName = parentChannel != null ? parentChannel.Name : null
+                    });
+                }
+            }
+
+            return channels;
+        }
+
+        public async Task<List<DiscordMessageDTO>> GetMessages(List<DiscordChannelModel> peristantChannels)
         {
             StopRoutine = false;
 

@@ -13,5 +13,6 @@ namespace FriendManager.BAL.Discord
         public ulong ChannelId { get; set; }
         public string ChannelName { get; set; }
         public ulong? ParentChannelId { get; set; }
+        public string ParentChannelName { get; set; }
     }
 }

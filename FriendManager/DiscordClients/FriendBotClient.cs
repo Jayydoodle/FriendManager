@@ -164,22 +164,146 @@ namespace FriendManager.DiscordClients
 
         #region Synchronization
 
-        public async Task SynchronizeChannels(List<DiscordChannelModel> peristantChannels, List<DiscordMessageDTO> messages)
+        public async Task SynchronizeChannelMessages(List<DiscordMessageDTO> messages)
         {
             StopRoutine = false;
 
-            if (!Initialized || StopRoutine || messages == null) return;
+            Dictionary<ulong, DiscordChannelModel> peristantChannels = (await DiscordManager.GetChannels()).ToDictionary(x => x.SourceChannelId, x => x);   
+
+            if (!Initialized || StopRoutine || peristantChannels == null || messages == null || !messages.Any()) return;
 
             messages = messages.OrderBy(x => x.GuildName)
                                .ThenBy(x => x.ChannelName)
                                .ThenBy(x => x.SentAt)
                                .ToList();
+            List<SocketGuildChannel> channels = channels = Guild.Channels.ToList();
+
+            var channelGroups = messages.GroupBy(x => new
+            {
+                x.ChannelId, 
+                x.ChannelName, 
+                x.GuildId, 
+                x.GuildName, 
+                x.ParentChannelId, 
+                x.ParentChannelName
+            });
+
+            foreach(var channelGroup in channelGroups) 
+            {
+                if (StopRoutine)
+                    return;
+
+                peristantChannels.TryGetValue(channelGroup.Key.ChannelId, out DiscordChannelModel channelModel);
+
+                if (channelModel == null)
+                {
+                    string errorMessage = string.Format("Synchronization failed for the channel '{1}' from guild '{2}'.  A channel with the SOURCE_CHANNEL_ID: {3} was not found in the database"
+                        , channelGroup.Key.ChannelName, channelGroup.Key.GuildName, channelGroup.Key.ChannelId);
+
+                    AnsiConsole.MarkupLine("[red]{0}[/]", errorMessage);
+                    LogMessage(errorMessage);
+                    continue;
+                }
+
+                SocketTextChannel textChannel = channels.FirstOrDefault(x => x.Id == channelModel.Id) as SocketTextChannel;
+
+                if (textChannel == null)
+                {
+                    string errorMessage = string.Format("Synchronization failed for the channel '{1}' from guild '{2}'.  A channel with the ID: {3} was not found in the Guild {4}"
+                        , channelGroup.Key.ChannelName, channelGroup.Key.GuildName, channelGroup.Key.ChannelId, Guild.Name);
+
+                    AnsiConsole.MarkupLine("[red]{0}[/]", errorMessage);
+                    LogMessage(errorMessage);
+                    continue;
+                }
+
+                List<DiscordMessageDTO> channelGroupMessages = channelGroup.ToList();
+                int count = channelGroupMessages.Count();
+                ulong lastSynchedMessageId = 0;
+
+                DiscordChannelSyncLogModel channelSyncLog = new DiscordChannelSyncLogModel();
+                channelSyncLog.ChannelId = channelModel.Id;
+
+                for (int i = 0; i < count; i++)
+                {
+                    if (StopRoutine)
+                        return;
+
+                    DiscordMessageDTO message = channelGroupMessages[i];
+
+                    if (!string.IsNullOrEmpty(message.MessageContent))
+                    {
+                        List<string> content = message.MessageContent.ChunkSplit(2000).ToList();
+
+                        foreach (var item in content)
+                        {
+                            await textChannel.SendMessageAsync(text: item, flags: MessageFlags.SuppressEmbeds, options: RequestOptions);
+                            await Task.Delay(MessageDelay);
+                        }
+                    }
+
+                    foreach (DiscordAttachmentDTO attachment in message.Attachments)
+                    {
+                        if (!string.IsNullOrEmpty(attachment.DownloadUrl))
+                        {
+                            await textChannel.SendMessageAsync(attachment.DownloadUrl, options: RequestOptions);
+                            await Task.Delay(MessageDelay);
+                        }
+                    }
+
+                    if (message.Embed != null)
+                    {
+                        var embed = new EmbedBuilder();
+
+                        if(!string.IsNullOrEmpty(message.Embed.AuthorName))
+                            embed.WithAuthor(message.Embed.AuthorName, message.Embed.AuthorIconUrl);
+
+                        if (message.Embed.TimeStamp.HasValue)
+                            embed.WithTimestamp(message.Embed.TimeStamp.Value);
+
+                        if (!string.IsNullOrEmpty(message.Embed.FooterText))
+                            embed.WithFooter(message.Embed.FooterText, message.Embed.FooterIconUrl);
+                            
+                        embed.ImageUrl = message.Embed.ImageUrl;
+                        embed.WithColor(Color.Magenta);
+
+                        message.Embed.Fields.ForEach(f => 
+                        {
+                            string name = !string.IsNullOrEmpty(f.Name) ? f.Name : "\u200b";
+
+                            if (!string.IsNullOrEmpty(f.Content))
+                                embed.AddField(name, f.Content);
+                        });
+
+                        if (!string.IsNullOrEmpty(embed.ImageUrl) || (embed.Fields != null && embed.Fields.Any()))
+                        {
+                            await textChannel.SendMessageAsync(null, false, embed.Build(), options: RequestOptions);
+                            await Task.Delay(MessageDelay);
+                        }
+                    }
+
+                    channelSyncLog.LastSynchedMessageId = message.MessageId;
+                    channelSyncLog.SynchedDate = DateTime.UtcNow;
+                    await channelSyncLog.Save();
+                }
+            }
+
+
+            await Task.CompletedTask;
+        }
+
+        public async Task SynchronizeChannelStructure(List<DiscordChannelModel> peristantChannels, List<DiscordChannelDTO> sourceChannels)
+        {
+            StopRoutine = false;
+
+            if (!Initialized || StopRoutine || sourceChannels == null || !sourceChannels.Any()) return;
+
+            sourceChannels = sourceChannels.OrderBy(x => x.GuildName)
+                               .ThenBy(x => x.ChannelName)
+                               .ToList();
 
             if (peristantChannels == null)
                 peristantChannels = new List<DiscordChannelModel>();
-
-            if (!messages.Any())
-                return;
 
             List<SocketGuildChannel> channels = channels = Guild.Channels.ToList();
             List<DiscordGuildModel> guilds = await DiscordGuildModel.GetAll(new() { x => x.GuildId == Guild.Id });
@@ -193,38 +317,30 @@ namespace FriendManager.DiscordClients
                 await guildModel.Save();
             }
 
-            var groups = messages.GroupBy(x => new
-            {
-                x.GuildId,
-                x.GuildName,
-                x.ParentChannelId,
-                x.ParentChannelName
-            });
-
-            foreach (var guildGroup in groups)
+            foreach (var sourceChannel in sourceChannels) 
             {
                 if (StopRoutine)
                     return;
 
                 DiscordChannelModel categoryModel = null;
-                
-                if (guildGroup.Key.ParentChannelId.HasValue)
-                    categoryModel = peristantChannels.FirstOrDefault(x => x.SourceChannelId == guildGroup.Key.ParentChannelId);
+
+                if (sourceChannel.ParentChannelId.HasValue)
+                    categoryModel = peristantChannels.FirstOrDefault(x => x.SourceChannelId == sourceChannel.ParentChannelId);
 
                 SocketCategoryChannel category = categoryModel != null ? channels.FirstOrDefault(x => x.Id == categoryModel.Id) as SocketCategoryChannel
-                                                                       : channels.FirstOrDefault(x => x.Name == guildGroup.Key.ParentChannelName) as SocketCategoryChannel;
+                                                                       : channels.FirstOrDefault(x => x.Name == sourceChannel.ParentChannelName) as SocketCategoryChannel;
 
-                if (category == null && !string.IsNullOrEmpty(guildGroup.Key.ParentChannelName) && guildGroup.Key.ParentChannelId.HasValue)
+                if (category == null && !string.IsNullOrEmpty(sourceChannel.ParentChannelName) && sourceChannel.ParentChannelId.HasValue)
                 {
-                    RestCategoryChannel newCategory = await Guild.CreateCategoryChannelAsync(guildGroup.Key.ParentChannelName);
+                    RestCategoryChannel newCategory = await Guild.CreateCategoryChannelAsync(sourceChannel.ParentChannelName);
                     category = Guild.GetChannel(newCategory.Id) as SocketCategoryChannel;
 
                     if (category != null)
                         channels.Add(category);
                 }
 
-                if (category != null && !string.Equals(category.Name, guildGroup.Key.ParentChannelName))
-                    await category.ModifyAsync(x => x.Name =  guildGroup.Key.ParentChannelName);
+                if (category != null && !string.Equals(category.Name, sourceChannel.ParentChannelName))
+                    await category.ModifyAsync(x => x.Name = sourceChannel.ParentChannelName);
 
                 if (category != null)
                 {
@@ -234,17 +350,17 @@ namespace FriendManager.DiscordClients
                     {
                         wasNewCategory = true;
                         categoryModel = new DiscordChannelModel();
-                        categoryModel.Id = category.Id;
                         categoryModel.GuildId = Guild.Id;
-                        categoryModel.CreatedDate = DateTime.UtcNow; 
+                        categoryModel.CreatedDate = DateTime.UtcNow;
                     }
 
+                    categoryModel.Id = category.Id;
                     categoryModel.Name = category.Name;
                     categoryModel.ParentChannelId = null;
-                    categoryModel.SourceGuildId = guildGroup.Key.GuildId;
-                    categoryModel.SourceGuildName = guildGroup.Key.GuildName;
-                    categoryModel.SourceChannelId = guildGroup.Key.ParentChannelId.Value;
-                    categoryModel.SourceChannelName = guildGroup.Key.ParentChannelName;
+                    categoryModel.SourceGuildId = sourceChannel.GuildId;
+                    categoryModel.SourceGuildName = sourceChannel.GuildName;
+                    categoryModel.SourceChannelId = sourceChannel.ParentChannelId.Value;
+                    categoryModel.SourceChannelName = sourceChannel.ParentChannelName;
                     await categoryModel.Save();
 
                     if (wasNewCategory)
@@ -254,142 +370,55 @@ namespace FriendManager.DiscordClients
                     }
                 }
 
-                var channelGroups = guildGroup.GroupBy(x => new
+                DiscordChannelModel channelModel = peristantChannels.FirstOrDefault(x => x.SourceChannelId == sourceChannel.ChannelId);
+
+                SocketTextChannel textChannel = channelModel != null ? channels.FirstOrDefault(x => x.Id == channelModel.Id) as SocketTextChannel
+                                                                     : channels.FirstOrDefault(x => x.Name == sourceChannel.ChannelName) as SocketTextChannel;
+
+                if (textChannel == null)
                 {
-                    x.ChannelId, 
-                    x.ChannelName, 
-                    x.GuildId, 
-                    x.GuildName, 
-                    x.ParentChannelId, 
-                    x.ParentChannelName
-                });
+                    RestTextChannel newChannel = category != null ? await Guild.CreateTextChannelAsync(sourceChannel.ChannelName, x => x.CategoryId = category.Id)
+                                                                  : await Guild.CreateTextChannelAsync(sourceChannel.ChannelName);
 
-                foreach(var channelGroup in channelGroups) 
+                    textChannel = Guild.GetTextChannel(newChannel.Id);
+
+                    if (textChannel != null)
+                        channels.Add(textChannel);
+                }
+
+                if (textChannel != null && !string.Equals(textChannel.Name, sourceChannel.ChannelName))
+                    await textChannel.ModifyAsync(x => x.Name = sourceChannel.ChannelName);
+
+                if (category != null && textChannel.CategoryId != category.Id)
+                    await textChannel.ModifyAsync(x => x.CategoryId = category.Id);
+
+                bool wasNewChannel = false;
+
+                if (channelModel == null)
                 {
-                    if (StopRoutine)
-                        return;
+                    wasNewChannel = true;
+                    channelModel = new DiscordChannelModel();
+                    channelModel.GuildId = Guild.Id;
+                    channelModel.CreatedDate = DateTime.UtcNow;
+                }
 
-                    DiscordChannelModel channelModel = peristantChannels.FirstOrDefault(x => x.SourceChannelId == channelGroup.Key.ChannelId);
+                channelModel.Id = textChannel.Id;
+                channelModel.Name = textChannel.Name;
+                channelModel.ParentChannelId = categoryModel != null ? categoryModel.Id : (ulong?)null;
+                channelModel.SourceGuildId = sourceChannel.GuildId;
+                channelModel.SourceGuildName = sourceChannel.GuildName;
+                channelModel.SourceChannelId = sourceChannel.ChannelId;
+                channelModel.SourceChannelName = sourceChannel.ChannelName;
+                channelModel.SourceParentChannelId = sourceChannel.ParentChannelId;
+                channelModel.SourceChannelName = sourceChannel.ChannelName;
+                await channelModel.Save();
 
-                    SocketTextChannel textChannel = channelModel != null ? channels.FirstOrDefault(x => x.Id == channelModel.Id) as SocketTextChannel
-                                                                         : channels.FirstOrDefault(x => x.Name == channelGroup.Key.ChannelName) as SocketTextChannel;
-
-                    if (textChannel == null)
-                    {
-                        RestTextChannel newChannel = category != null ? await Guild.CreateTextChannelAsync(channelGroup.Key.ChannelName, x => x.CategoryId = category.Id)
-                                                                      : await Guild.CreateTextChannelAsync(channelGroup.Key.ChannelName);
-
-                        textChannel = Guild.GetTextChannel(newChannel.Id);
-
-                        if (textChannel != null)
-                            channels.Add(textChannel);
-                    }
-
-                    if (textChannel != null && !string.Equals(textChannel.Name, channelGroup.Key.ChannelName))
-                        await textChannel.ModifyAsync(x => x.Name = channelGroup.Key.ChannelName);
-
-                    if (category != null && textChannel.CategoryId != category.Id)
-                        await textChannel.ModifyAsync(x => x.CategoryId = category.Id);
-
-                    bool wasNewChannel = false;
-
-                    if (channelModel == null)
-                    {
-                        wasNewChannel = true;
-                        channelModel = new DiscordChannelModel();
-                        channelModel.Id = textChannel.Id;
-                        channelModel.GuildId = Guild.Id;
-                        channelModel.CreatedDate = DateTime.UtcNow;
-                    }
-
-                    channelModel.Name = textChannel.Name;
-                    channelModel.ParentChannelId = categoryModel != null ? categoryModel.Id : (ulong?)null;
-                    channelModel.SourceGuildId = channelGroup.Key.GuildId;
-                    channelModel.SourceGuildName = channelGroup.Key.GuildName;
-                    channelModel.SourceChannelId = channelGroup.Key.ChannelId;
-                    channelModel.SourceChannelName = channelGroup.Key.ChannelName;
-                    channelModel.SourceParentChannelId = channelGroup.Key.ParentChannelId;
-                    channelModel.SourceChannelName = channelGroup.Key.ChannelName;
-                    await channelModel.Save();
-
-                    if (wasNewChannel)
-                    {
-                        peristantChannels.Add(channelModel);
-                        await EnsureChannelPermissions(new List<DiscordChannelModel> { channelModel });
-                    }
-
-                    List<DiscordMessageDTO> channelGroupMessages = channelGroup.ToList();
-                    int count = channelGroupMessages.Count();
-                    ulong lastSynchedMessageId = 0;
-
-                    DiscordChannelSyncLogModel channelSyncLog = new DiscordChannelSyncLogModel();
-                    channelSyncLog.ChannelId = channelModel.Id;
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        if (StopRoutine)
-                            return;
-
-                        DiscordMessageDTO message = channelGroupMessages[i];
-
-                        if (!string.IsNullOrEmpty(message.MessageContent))
-                        {
-                            List<string> content = message.MessageContent.ChunkSplit(2000).ToList();
-
-                            foreach (var item in content)
-                            {
-                                await textChannel.SendMessageAsync(text: item, flags: MessageFlags.SuppressEmbeds, options: RequestOptions);
-                                await Task.Delay(MessageDelay);
-                            }
-                        }
-
-                        foreach (DiscordAttachmentDTO attachment in message.Attachments)
-                        {
-                            if (!string.IsNullOrEmpty(attachment.DownloadUrl))
-                            {
-                                await textChannel.SendMessageAsync(attachment.DownloadUrl, options: RequestOptions);
-                                await Task.Delay(MessageDelay);
-                            }
-                        }
-
-                        if (message.Embed != null)
-                        {
-                            var embed = new EmbedBuilder();
-
-                            if(!string.IsNullOrEmpty(message.Embed.AuthorName))
-                                embed.WithAuthor(message.Embed.AuthorName, message.Embed.AuthorIconUrl);
-
-                            if (message.Embed.TimeStamp.HasValue)
-                                embed.WithTimestamp(message.Embed.TimeStamp.Value);
-
-                            if (!string.IsNullOrEmpty(message.Embed.FooterText))
-                                embed.WithFooter(message.Embed.FooterText, message.Embed.FooterIconUrl);
-                            
-                            embed.ImageUrl = message.Embed.ImageUrl;
-                            embed.WithColor(Color.Magenta);
-
-                            message.Embed.Fields.ForEach(f => 
-                            {
-                                string name = !string.IsNullOrEmpty(f.Name) ? f.Name : "\u200b";
-
-                                if (!string.IsNullOrEmpty(f.Content))
-                                    embed.AddField(name, f.Content);
-                            });
-
-                            if (!string.IsNullOrEmpty(embed.ImageUrl) || (embed.Fields != null && embed.Fields.Any()))
-                            {
-                                await textChannel.SendMessageAsync(null, false, embed.Build(), options: RequestOptions);
-                                await Task.Delay(MessageDelay);
-                            }
-                        }
-
-                        channelSyncLog.LastSynchedMessageId = message.MessageId;
-                        channelSyncLog.SynchedDate = DateTime.UtcNow;
-                        await channelSyncLog.Save();
-                    }
+                if (wasNewChannel)
+                {
+                    peristantChannels.Add(channelModel);
+                    await EnsureChannelPermissions(new List<DiscordChannelModel> { channelModel });
                 }
             }
-
 
             await Task.CompletedTask;
         }
