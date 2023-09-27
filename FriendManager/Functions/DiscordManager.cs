@@ -357,7 +357,7 @@ namespace FriendManager.Functions
 
         private async Task RunPurgeRoutine()
         {
-            if (RunningSyncRoutine)
+            if (RunningPurgeRoutine)
             {
                 string message = "Purge routine attempted to run again while already running";
                 AnsiConsole.MarkupLine("[orange1]{0}[/]", message);
