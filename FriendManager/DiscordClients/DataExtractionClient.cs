@@ -153,8 +153,8 @@ namespace FriendManager.DiscordClients
                     DiscordChannelModel persistantChannel = peristantChannels.FirstOrDefault(chan => chan.SourceChannelId == channel.Id);
                     MessageFilters filter = null;
 
-                    if(persistantChannel != null && persistantChannel.LatestLog != null)
-                        filter = new MessageFilters() { AfterId = persistantChannel.LatestLog.LastSynchedMessageId, Limit = 100 };
+                    if (persistantChannel != null && persistantChannel.LatestLog != null)
+                        filter = new MessageFilters() { AfterId = persistantChannel.LatestLog.LastSynchedMessageId };
 
                     Action onGetMessagesTimeout = async () =>
                     {
@@ -164,7 +164,7 @@ namespace FriendManager.DiscordClients
                             await BotClient.LogMessage(string.Format("The client timed out when trying to get messages from the channel \"{0}\" ({1})", channel.Name, channel.Id));
                     };
 
-                    IReadOnlyList<DiscordMessage> channelMessages = await channel.GetMessagesAsync(filter).AwaitTimeout(logError: false, onActionTimeout: onGetMessagesTimeout);
+                    IReadOnlyList<DiscordMessage> channelMessages = await channel.GetMessagesAsync(filter).AwaitTimeout(timeout: 120000, logError: false, onActionTimeout: onGetMessagesTimeout);
 
                     if (channelMessages == null)
                         continue;

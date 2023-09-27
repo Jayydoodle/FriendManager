@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>Anarchy</RootNamespace>
+	  <DebugSymbols>true</DebugSymbols>
+	  <DebugType>full</DebugType>
+	  <ErrorReport>prompt</ErrorReport>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <WarningLevel>4</WarningLevel>
+	  <PlatformTarget>AnyCPU</PlatformTarget>
+	  <NoWarn>IDE1006, CS0649, CS0414, IDE0051</NoWarn>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <BaseOutputPath>..\.bin\$(MSBuildProjectName)</BaseOutputPath>
+    <Description>The superior Discord API wrapper.</Description>
+    <Copyright>Copyright ©iLinked 2022</Copyright>
+    <VersionPrefix>0.8.3.2</VersionPrefix>
+    <VersionSuffix></VersionSuffix>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Title>Anarchy</Title>
+    <PackageId>Anarchy-Wrapper</PackageId>
+    <PackageIcon>nuget-logo.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>See the changelog on github:
+https://github.com/not-ilinked/Anarchy/blob/master/Changelog.md</PackageReleaseNotes>
+    <Authors>iLinked</Authors>
+    <PackageProjectUrl></PackageProjectUrl>
+    <RepositoryUrl>https://github.com/not-ilinked/Anarchy</RepositoryUrl>
+    <PackageTags>discord;anarchy</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="nuget-logo.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Graphics" Version="7.0.49" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+  </ItemGroup>
+
+</Project>

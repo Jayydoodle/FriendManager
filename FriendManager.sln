@@ -7,9 +7,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FriendManager", "FriendMana
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CustomSpectreConsole", "CustomSpectreConsole\CustomSpectreConsole.csproj", "{3708844F-91B2-4250-9ACE-31D6304D51C3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FriendManager.DAL", "FriendManager.DAL\FriendManager.DAL.csproj", "{35F95168-4A97-4FB7-9677-91C035E806C3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FriendManager.DAL", "FriendManager.DAL\FriendManager.DAL.csproj", "{35F95168-4A97-4FB7-9677-91C035E806C3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FriendManager.BAL", "FriendManager.BAL\FriendManager.BAL.csproj", "{16E26C8F-6CE3-44D3-9D5D-7D84B6E1BB37}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FriendManager.BAL", "FriendManager.BAL\FriendManager.BAL.csproj", "{16E26C8F-6CE3-44D3-9D5D-7D84B6E1BB37}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Anarchy", "Anarchy\Anarchy\Anarchy.csproj", "{93779A1C-3021-48C7-B37A-D45C358C0285}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{16E26C8F-6CE3-44D3-9D5D-7D84B6E1BB37}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{16E26C8F-6CE3-44D3-9D5D-7D84B6E1BB37}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{16E26C8F-6CE3-44D3-9D5D-7D84B6E1BB37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93779A1C-3021-48C7-B37A-D45C358C0285}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93779A1C-3021-48C7-B37A-D45C358C0285}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93779A1C-3021-48C7-B37A-D45C358C0285}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93779A1C-3021-48C7-B37A-D45C358C0285}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
