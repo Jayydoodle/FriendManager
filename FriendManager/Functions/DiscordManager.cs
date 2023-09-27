@@ -510,7 +510,7 @@ namespace FriendManager.Functions
 
                 await Client.SynchronizeChannelMessages(messages);
 
-                AnsiConsole.MarkupLine("\n[yellow]Synchronization Complete - {0}[/]", DateTime.Now.ToShortTimeString());
+                AnsiConsole.MarkupLine("\n[green]Synchronization Complete - {0}[/]", DateTime.Now.ToShortTimeString());
 
                 RunningSyncRoutine = false;
 
