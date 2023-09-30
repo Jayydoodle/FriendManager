@@ -58,6 +58,7 @@ namespace FriendManager.Functions
             listOptions.Add(new ListOption("Edit Channel Of The Day", EditChannelOfTheDay));
             listOptions.Add(new ListOption("Edit Configuration", EditConfiguration));
             listOptions.Add(new ListOption("Ensure Channel Permissions", EnsureChannelPermissions));
+            listOptions.Add(new ListOption("Unlock Channels", UnlockChannels));
             listOptions.Add(new ListOption("Manage Excluded Channels", EditChannelConfig));
             listOptions.Add(new ListOption("Manage Excluded Users", ManageExcludedUsers));
             listOptions.Add(new ListOption("Manage Target Servers", EditTargetServerConfig));
@@ -416,6 +417,40 @@ namespace FriendManager.Functions
             catch (Exception e)
             {
                 AnsiConsole.MarkupLine("[red]Ensuring Channel Permissions Failed - {0}[/]\n", DateTime.Now.ToShortTimeString());
+                e.LogException();
+                RunningChannelPermissionsRoutine = false;
+            }
+
+            await Task.CompletedTask;
+        }
+
+        private async void UnlockChannels()
+        {
+            if (RunningSyncRoutine || RunningPurgeRoutine)
+            {
+                AnsiConsole.MarkupLine("\n[orange1]Unlocking Channels - Waiting for other routines to complete... {0}[/]", DateTime.Now.ToShortTimeString());
+
+                while (RunningSyncRoutine || RunningPurgeRoutine)
+                    await Task.Delay(2000);
+            }
+
+            try
+            {
+                AnsiConsole.MarkupLine("\n[yellow]Unlocking Channels - {0}[/]", DateTime.Now.ToShortTimeString());
+
+                RunningChannelPermissionsRoutine = true;
+                List<DiscordChannelModel> channels = await GetChannels();
+
+                await Client.UnlockChannels(channels);
+
+                AnsiConsole.MarkupLine("[green]Unlocking Channels Complete - {0}[/]\n", DateTime.Now.ToShortTimeString());
+
+                RunningChannelPermissionsRoutine = false;
+
+            }
+            catch (Exception e)
+            {
+                AnsiConsole.MarkupLine("[red]Unlocking Channels Failed - {0}[/]\n", DateTime.Now.ToShortTimeString());
                 e.LogException();
                 RunningChannelPermissionsRoutine = false;
             }

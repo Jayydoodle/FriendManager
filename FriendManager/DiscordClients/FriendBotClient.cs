@@ -479,6 +479,14 @@ namespace FriendManager.DiscordClients
             }
         }
 
+        public async Task UnlockChannels(List<DiscordChannelModel> peristantChannels)
+        {
+            List<SocketGuildChannel> channels = Guild.Channels.Where(x => peristantChannels.Any(y => y.Id == x.Id)).ToList();
+
+            foreach (var channel in channels)
+                await channel.AddPermissionOverwriteAsync(Guild.EveryoneRole, OverwritePermissions.DenyAll(channel).Modify(viewChannel: PermValue.Allow, readMessageHistory: PermValue.Allow, addReactions: PermValue.Allow));
+        }
+
         #endregion
 
         #region User Management
