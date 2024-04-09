@@ -284,7 +284,17 @@ namespace FriendManager.DiscordClients
 
                     channelSyncLog.LastSynchedMessageId = message.MessageId;
                     channelSyncLog.SynchedDate = DateTime.UtcNow;
-                    await channelSyncLog.Save();
+                    Task saveTask = channelSyncLog.Save().AwaitTimeout();
+
+                    if (saveTask.IsFaulted || !saveTask.IsCompleted)
+                    {
+                        string errorMessage = string.Format("The message with ID {0} from the channel {1} " +
+                            "failed to create a database log against the channel with ID {2} and name {3}", 
+                            message.MessageId, message.ChannelId, channelModel.Id, channelModel.Name);
+
+                        LogMessage(errorMessage);
+                        StopRoutine = true;
+                    }
                 }
             }
 
