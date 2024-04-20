@@ -1,4 +1,5 @@
-﻿using FriendManager.DAL.Discord.Models;
+﻿using CustomSpectreConsole;
+using FriendManager.DAL.Discord.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -13,22 +14,28 @@ namespace FriendManager.BAL.Discord
     {
         #region Properties
 
+        [TableColumnAttribute]
         public int Id
         {
             get { return _item.ChannelSyncLogId; }
             set { _item.ChannelSyncLogId = value; }
         }
+
+        [TableColumnAttribute]
         public ulong? LastSynchedMessageId
         {
             get { return _item.LastSynchedMessageId; }
             set { _item.LastSynchedMessageId = value; }
         }
+
+        [TableColumnAttribute]
         public DateTime? SynchedDate
         {
             get { return _item.SynchedDate; }
             set { _item.SynchedDate = value; }
         }
 
+        [TableColumnAttribute]
         public ulong ChannelId
         {
             get { return _item.ChannelId; }

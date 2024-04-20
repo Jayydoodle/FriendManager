@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Metadata;
 using FriendManager.BAL.Discord;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace FriendManager.BAL.Base
 {
@@ -72,8 +73,9 @@ namespace FriendManager.BAL.Base
 
         #region Private API
 
-        protected async Task InternalSave()
+        protected async Task<bool> InternalSave()
         {
+            int updates = 0;
             using (TContext context = new TContext())
             {
                 if (IsNew)
@@ -81,12 +83,12 @@ namespace FriendManager.BAL.Base
                 else
                     context.Entry(_item).State = EntityState.Modified;
 
-                await context.SaveChangesAsync().AwaitTimeout();
+                updates = await context.SaveChangesAsync().AwaitTimeout();
             }
 
             IsNew = false;
 
-            await Task.CompletedTask;
+            return updates > 0;
         }
 
         protected async Task InternalDelete()

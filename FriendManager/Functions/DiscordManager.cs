@@ -14,6 +14,9 @@ using Spectre.Console;
 using FriendManager.DAL.Discord;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using System.Threading.Channels;
+using System.Collections;
+using System.Threading.Tasks;
 
 namespace FriendManager.Functions
 {
@@ -49,6 +52,7 @@ namespace FriendManager.Functions
         {
             List<ListOption> listOptions = new List<ListOption>();
 
+            listOptions.Add(new ListOption("Database Query", DatabaseQuery));
             listOptions.Add(new ListOption("Show Holders", ShowHolders));
             listOptions.Add(new ListOption("Purge Invalid Users", PurgeInvalidUsers));
             listOptions.Add(new ListOption("Run Scheduled User Purge", RunScheduledPurge));
@@ -69,6 +73,29 @@ namespace FriendManager.Functions
             listOptions.Add(GetHelpOption());
 
             return listOptions;
+        }
+
+        #endregion
+
+        #region Private API: Admin
+
+        protected async void DatabaseQuery()
+        {
+            List<Type> types = new List<Type>() { typeof(DiscordGuildModel), typeof(DiscordChannelModel), typeof(DiscordChannelSyncLogModel) };
+            SelectionPrompt<Type> prompt = new SelectionPrompt<Type>();
+            prompt.Title = "Select the type of object you want to query";
+            prompt.PageSize = 20;
+            prompt.UseConverter(x => string.Format("{0}", x.Name));
+            prompt.AddChoices(types);
+
+            Type selectedType = AnsiConsole.Prompt(prompt);
+            List<PropertyInfo> properties = selectedType.GetProperties(BindingFlags.Instance | BindingFlags.Public).ToList();
+
+            MethodInfo getMethod = selectedType.GetMethod(nameof(DiscordObjectBase<object,object>.GetAll), BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+
+            var task = (Task)getMethod.Invoke(null, new object[2]);
+            var results = task.GetType().GetProperty(nameof(Task<object>.Result)).GetValue(task);
+            TableDisplay.BuildDisplay((IEnumerable)results);
         }
 
         #endregion

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
+using CustomSpectreConsole;
 using FriendManager.DAL.Discord.Models;
 
 namespace FriendManager.BAL.Discord
@@ -13,18 +14,21 @@ namespace FriendManager.BAL.Discord
     {
         #region Properties
 
+        [TableColumnAttribute]
         public ulong Id
         {
             get { return _item.ChannelId; }
             set { _item.ChannelId = value; }
         }
 
+        [TableColumnAttribute]
         public string Name
         {
             get { return _item.Name; }
             set { _item.Name = value; }
         }
 
+        [TableColumnAttribute]
         public ulong GuildId
         {
             get { return _item.GuildId; }
@@ -48,6 +52,7 @@ namespace FriendManager.BAL.Discord
             }
         }
 
+        [TableColumnAttribute]
         public ulong? ParentChannelId
         {
             get { return _item.ParentChannelId; }
@@ -90,36 +95,42 @@ namespace FriendManager.BAL.Discord
 
         public DiscordChannelSyncLogModel LatestLog => Logs.FirstOrDefault();
 
+        [TableColumnAttribute]
         public DateTime CreatedDate
         {
             get { return _item.CreatedDate; }
             set { _item.CreatedDate = value; }
         }
 
+        [TableColumnAttribute]
         public ulong SourceGuildId
         {
             get { return _item.SourceGuildId; }
             set { _item.SourceGuildId = value; }
         }
 
+        [TableColumnAttribute]
         public string SourceGuildName
         {
             get { return _item.SourceGuildName; }
             set { _item.SourceGuildName = value; }
         }
 
+        [TableColumnAttribute]
         public ulong SourceChannelId
         {
             get { return _item.SourceChannelId; }
             set { _item.SourceChannelId = value; }
         }
 
+        [TableColumnAttribute]
         public string SourceChannelName
         {
             get { return _item.SourceChannelName; }
             set { _item.SourceChannelName = value; }
         }
 
+        [TableColumnAttribute]
         public ulong? SourceParentChannelId
         {
             get { return _item.SourceParentChannelId; }

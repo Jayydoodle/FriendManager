@@ -31,9 +31,10 @@ namespace FriendManager.BAL.Discord
 
         #region Public API
 
-        public virtual async Task Save()
+        public virtual async Task<bool> Save()
         {
-            await InternalSave();
+           bool saved = await InternalSave();
+           return saved;
         }
 
         public virtual async Task Delete()

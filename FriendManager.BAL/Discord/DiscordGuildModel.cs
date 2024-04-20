@@ -5,6 +5,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
+using CustomSpectreConsole;
 using FriendManager.DAL.Discord.Models;
 
 namespace FriendManager.BAL.Discord
@@ -13,12 +14,14 @@ namespace FriendManager.BAL.Discord
     {
         #region Properties
 
+        [TableColumnAttribute]
         public ulong Id
         {
             get { return _item.GuildId; }
             set { _item.GuildId = value; }
         }
 
+        [TableColumnAttribute]
         public string Name
         {
             get { return _item.Name; }

@@ -22,6 +22,7 @@ using TL;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Net.Mail;
 using Color = Discord.Color;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace FriendManager.DiscordClients
 {
@@ -284,9 +285,9 @@ namespace FriendManager.DiscordClients
 
                     channelSyncLog.LastSynchedMessageId = message.MessageId;
                     channelSyncLog.SynchedDate = DateTime.UtcNow;
-                    Task saveTask = channelSyncLog.Save().AwaitTimeout();
+                    bool saveSuccess = await channelSyncLog.Save();
 
-                    if (saveTask.IsFaulted || !saveTask.IsCompleted)
+                    if (!saveSuccess)
                     {
                         string errorMessage = string.Format("The message with ID {0} from the channel {1} " +
                             "failed to create a database log against the channel with ID {2} and name {3}", 

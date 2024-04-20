@@ -144,6 +144,7 @@ namespace CustomSpectreConsole
             prompt.PageSize = 20;
 
             prompt.AddChoice(EditOptionChoice<T>.OrderByOption());
+            prompt.AddChoice(EditOptionChoice<T>.PartialTextMatchOption());
 
             List<EditOptionChoice<T>> choices = AnsiConsole.Prompt(prompt);
             AddFilters(choices);
